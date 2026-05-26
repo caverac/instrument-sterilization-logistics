@@ -1,0 +1,75 @@
+[project]
+name = "instrument-sterilization-logistics-workspace"
+version = "0.0.0"
+description = "uv workspace root — not a real package"
+requires-python = ">=3.14"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=7.0.0",
+    "mypy>=1.15",
+    "black>=24.0.0",
+    "flake8>=7.0.0",
+    "flake8-docstrings>=1.7.0",
+    "pylint>=3.0.0",
+    "pydocstyle>=6.3.0",
+    "isort>=5.13.0",
+    "pre-commit>=4.0.0",
+    "python-semantic-release>=10.5.3",
+    "build>=1.4.0",
+]
+
+# =============================================================================
+# Tool configuration
+# =============================================================================
+
+[tool.black]
+line-length = 120
+target-version = ["py314"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.pylint.main]
+ignore-patterns = ['.*\.pyi$']
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    "invalid-name",
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-statements",
+    "too-few-public-methods",
+    "duplicate-code",
+]
+
+[tool.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+explicit_package_bases = true
+
+[tool.pyright]
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests that require network access and optional dependencies (deselect with '-m \"not slow\"')",
+]

@@ -1,0 +1,12 @@
+CHANGELOG.md
+**/CHANGELOG.md
+.venv/
+node_modules/
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+.yarn/
+uv.lock
+yarn.lock
+notebooks/
