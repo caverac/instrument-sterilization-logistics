@@ -1,0 +1,75 @@
+"""Tests for the Kafka bus helpers."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import pytest
+
+from ingest.bus import make_producer, make_serializer, publish_event
+from ingest.events import Event
+
+from .conftest import FakeProducer, FakeSerializer
+
+
+async def test_publish_event_uses_tray_id_as_partition_key(
+    fake_producer: FakeProducer, fake_serializer: FakeSerializer, sample_event: Event
+) -> None:
+    await publish_event(fake_producer, fake_serializer, "events", sample_event)
+    assert len(fake_producer.produced) == 1
+    msg = fake_producer.produced[0]
+    assert msg["topic"] == "events"
+    assert msg["key"] == sample_event.tray_id.encode("utf-8")
+    body = json.loads(msg["value"])
+    assert body["event_id"] == str(sample_event.event_id)
+    assert body["source_system"] == sample_event.source_system
+    assert len(fake_producer.poll_timeouts) == 1
+
+
+async def test_publish_event_invokes_serializer_with_value_context(
+    fake_producer: FakeProducer, fake_serializer: FakeSerializer, sample_event: Event
+) -> None:
+    await publish_event(fake_producer, fake_serializer, "events", sample_event)
+    assert len(fake_serializer.calls) == 1
+    value, ctx = fake_serializer.calls[0]
+    assert value["event_id"] == str(sample_event.event_id)
+    # Context carries the topic + value field marker.
+    assert getattr(ctx, "topic", None) == "events"
+
+
+def test_make_producer_passes_expected_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``make_producer`` constructs Producer with idempotent, all-acks config."""
+    captured: dict[str, Any] = {}
+
+    def fake_ctor(config: dict[str, Any]) -> FakeProducer:
+        captured["config"] = config
+        return FakeProducer()
+
+    monkeypatch.setattr("ingest.bus.Producer", fake_ctor)
+    make_producer("localhost:9092")
+    assert captured["config"]["bootstrap.servers"] == "localhost:9092"
+    assert captured["config"]["enable.idempotence"] is True
+    assert captured["config"]["acks"] == "all"
+    assert captured["config"]["compression.type"] == "snappy"
+
+
+def test_make_serializer_wires_schema_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``make_serializer`` builds an SR client and passes our event schema."""
+    captured: dict[str, Any] = {}
+
+    def fake_sr_client(config: dict[str, Any]) -> object:
+        captured["sr_config"] = config
+        return object()
+
+    def fake_json_serializer(schema: str, sr_client: Any) -> FakeSerializer:
+        captured["schema"] = schema
+        captured["sr_client"] = sr_client
+        return FakeSerializer()
+
+    monkeypatch.setattr("ingest.bus.SchemaRegistryClient", fake_sr_client)
+    monkeypatch.setattr("ingest.bus.JSONSerializer", fake_json_serializer)
+    make_serializer("http://sr:8081")
+    assert captured["sr_config"] == {"url": "http://sr:8081"}
+    assert "event_id" in captured["schema"]
+    assert captured["sr_client"] is not None

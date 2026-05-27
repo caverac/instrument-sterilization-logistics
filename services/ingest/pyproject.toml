@@ -1,0 +1,53 @@
+[project]
+name = "ingest"
+version = "0.0.0"
+description = "FastAPI ingest service: validates and publishes facility events to Kafka."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "confluent-kafka[json]>=2.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ingest"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=7.0.0",
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--cov=ingest --cov-report=term-missing"
+markers = [
+    "slow: integration tests requiring docker-compose stack (deselect with '-m \"not slow\"')",
+]
+
+[tool.coverage.run]
+source = ["ingest"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+# Exclude only patterns that are runtime no-ops by definition:
+#   * ``if TYPE_CHECKING:`` blocks are evaluated by mypy, not the interpreter.
+#   * Bodies that are only ``...`` (Protocol method stubs, etc.).
+# Do NOT add ``pragma: no cover`` here -- per project rules, unreachable code
+# must be deleted, not pragma'd around.
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]

@@ -76,7 +76,7 @@ fix(routing): handle empty candidate facility set
 docs: clarify preference-card learning loop
 ```
 
-Commit messages drive automated releases — `feat` triggers a minor version bump, `fix` triggers a patch. A `BREAKING CHANGE` footer triggers a major bump.
+Commit messages drive automated releases -- `feat` triggers a minor version bump, `fix` triggers a patch. A `BREAKING CHANGE` footer triggers a major bump.
 
 ## Code quality standards
 
@@ -112,7 +112,7 @@ yarn build
 
 ## Project structure
 
-See [`notebooks/notes/logs/20260525-idea.md`](notebooks/notes/logs/20260525-idea.md) §12 for the planned package layout. The repo currently contains the monorepo boilerplate (linters, CI, hooks); package skeletons land as the M1–M3 build order in §13 of the design doc progresses.
+See [`notebooks/notes/logs/20260525-idea.md`](notebooks/notes/logs/20260525-idea.md) section 12 for the planned package layout. The repo currently contains the monorepo boilerplate (linters, CI, hooks); package skeletons land as the M1--M3 build order in section 13 of the design doc progresses.
 
 ## License
 

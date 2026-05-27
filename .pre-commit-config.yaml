@@ -7,14 +7,14 @@ repos:
         entry: uv run black
         language: system
         types: [python]
-        files: ^packages/
+        files: ^(services|adapters)/
 
       - id: isort
         name: isort
         entry: uv run isort
         language: system
         types: [python]
-        files: ^packages/
+        files: ^(services|adapters)/
 
       # --- Python linters ---
       - id: flake8
@@ -22,29 +22,30 @@ repos:
         entry: uv run flake8
         language: system
         types: [python]
-        files: ^packages/
+        files: ^(services|adapters)/
 
       - id: pylint
         name: pylint
         entry: uv run pylint
         language: system
         types: [python]
-        files: ^packages/
+        files: ^(services|adapters)/
 
       - id: pydocstyle
         name: pydocstyle
         entry: uv run pydocstyle
         language: system
         types: [python]
-        files: ^packages/.*/src/
+        files: ^(services|adapters)/.*/src/
 
-      # --- Python typecheck (per-file; switch to whole-project once packages exist) ---
+      # --- Python typecheck (whole-project, not per-file -- mypy doesn't compose per-file well in strict mode) ---
       - id: mypy
         name: mypy
-        entry: uv run mypy
+        entry: uv run mypy services/ingest/src/ services/ingest/tests/
         language: system
         types: [python]
-        files: ^packages/
+        pass_filenames: false
+        files: ^(services|adapters)/
 
       # --- JS/TS formatters (auto-fix) ---
       - id: prettier
@@ -67,6 +68,19 @@ repos:
         language: system
         pass_filenames: false
         types_or: [ts, tsx]
+
+      # --- Strip non-ASCII characters from text sources ---
+      - id: strip-non-ascii
+        name: strip non-ascii
+        entry: uv run python scripts/strip_non_ascii.py
+        language: system
+        types_or: [python, javascript, jsx, ts, tsx, json, yaml, markdown, toml]
+        exclude: |
+          (?x)^(
+            CHANGELOG\.md|
+            .*/CHANGELOG\.md|
+            scripts/strip_non_ascii\.py
+          )$
 
   # --- Commit message lint ---
   - repo: local

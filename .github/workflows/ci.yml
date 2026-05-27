@@ -14,10 +14,6 @@ permissions:
 jobs:
   # ===========================================================================
   # Python Jobs (run in parallel)
-  #
-  # While `packages/` is empty these jobs install dependencies and no-op the
-  # linters. As soon as the first Python package lands, the linters run for
-  # real against `packages/`.
   # ===========================================================================
 
   lint-python:
@@ -37,35 +33,34 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python sources
-        id: pyfiles
-        run: |
-          if find packages -name "*.py" -type f 2>/dev/null | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python files under packages/ yet — linters will no-op."
-          fi
-
       - name: Check formatting with black
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run black --check packages/
+        run: >-
+          uv run black --check
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Check import order with isort
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run isort --check-only packages/
+        run: >-
+          uv run isort --check-only
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Lint with flake8
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run flake8 packages/
+        run: >-
+          uv run flake8
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Lint with pylint
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run pylint packages/
+        run: >-
+          uv run pylint
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Check docstrings with pydocstyle
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run pydocstyle packages/
+        run: >-
+          uv run pydocstyle
+          services/ingest/src/
 
   typecheck-python:
     name: Typecheck (Python)
@@ -84,18 +79,11 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python sources
-        id: pyfiles
-        run: |
-          if find packages -name "*.py" -type f 2>/dev/null | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run mypy
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run mypy packages/
+        run: >-
+          uv run mypy
+          services/ingest/src/
+          services/ingest/tests/
 
   test-python:
     name: Test (Python)
@@ -114,19 +102,9 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect tests
-        id: pytests
-        run: |
-          if find packages -path "*/tests/*" -name "*.py" -type f 2>/dev/null | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python tests under packages/ yet — pytest will no-op."
-          fi
-
-      - name: Run pytest
-        if: steps.pytests.outputs.present == 'true'
-        run: uv run python -m pytest packages/ -v
+      - name: Test ingest
+        working-directory: services/ingest
+        run: uv run python -m pytest tests/ -v -m "not slow"
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)
@@ -176,7 +154,7 @@ jobs:
         run: yarn typecheck
 
   # ===========================================================================
-  # Build gate (requires all lint/typecheck/test jobs to pass)
+  # Build gate (requires all lint/test jobs to pass)
   # ===========================================================================
 
   build:

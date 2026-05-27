@@ -3,7 +3,9 @@
   "private": true,
   "packageManager": "yarn@4.12.0",
   "workspaces": [
-    "packages/*"
+    "services/*",
+    "adapters/*",
+    "ui/*"
   ],
   "scripts": {
     "lint": "eslint --max-warnings 0",
