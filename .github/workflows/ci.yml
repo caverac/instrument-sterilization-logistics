@@ -14,18 +14,6 @@ permissions:
 jobs:
   # ===========================================================================
   # Python Jobs (run in parallel)
-  #
-  # The `pydirs` step emits three lists computed from what's on disk:
-  #
-  #   pkg_dirs   e.g. "services/ingest"        - one entry per package dir;
-  #                                              passed to black, isort, flake8,
-  #                                              pylint, mypy, and pytest so that
-  #                                              each package's own pyproject is
-  #                                              the pytest rootdir.
-  #   src_dirs   e.g. "services/ingest/src"    - passed to pydocstyle so we
-  #                                              don't lint test docstrings.
-  #   present    "true" / "false"              - skip downstream steps when
-  #                                              no Python sources exist yet.
   # ===========================================================================
 
   lint-python:
@@ -45,53 +33,34 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python source dirs
-        id: pydirs
-        run: |
-          pkg_dirs=""
-          src_dirs=""
-          for top in services adapters; do
-            [ -d "$top" ] || continue
-            for pkg in "$top"/*; do
-              [ -d "$pkg" ] || continue
-              if find "$pkg" -name "*.py" -type f | grep -q .; then
-                pkg_dirs="$pkg_dirs $pkg"
-                [ -d "$pkg/src" ] && src_dirs="$src_dirs $pkg/src"
-              fi
-            done
-          done
-          pkg_dirs=$(echo "$pkg_dirs" | xargs)
-          src_dirs=$(echo "$src_dirs" | xargs)
-          if [ -n "$pkg_dirs" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "pkg_dirs=$pkg_dirs" >> "$GITHUB_OUTPUT"
-            echo "src_dirs=$src_dirs" >> "$GITHUB_OUTPUT"
-            echo "Python packages: $pkg_dirs"
-            echo "Python src dirs: $src_dirs"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python sources yet -- linters will no-op."
-          fi
-
       - name: Check formatting with black
-        if: steps.pydirs.outputs.present == 'true'
-        run: uv run black --check ${{ steps.pydirs.outputs.pkg_dirs }}
+        run: >-
+          uv run black --check
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Check import order with isort
-        if: steps.pydirs.outputs.present == 'true'
-        run: uv run isort --check-only ${{ steps.pydirs.outputs.pkg_dirs }}
+        run: >-
+          uv run isort --check-only
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Lint with flake8
-        if: steps.pydirs.outputs.present == 'true'
-        run: uv run flake8 ${{ steps.pydirs.outputs.pkg_dirs }}
+        run: >-
+          uv run flake8
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Lint with pylint
-        if: steps.pydirs.outputs.present == 'true'
-        run: uv run pylint ${{ steps.pydirs.outputs.pkg_dirs }}
+        run: >-
+          uv run pylint
+          services/ingest/src/
+          services/ingest/tests/
 
       - name: Check docstrings with pydocstyle
-        if: steps.pydirs.outputs.present == 'true'
-        run: uv run pydocstyle ${{ steps.pydirs.outputs.src_dirs }}
+        run: >-
+          uv run pydocstyle
+          services/ingest/src/
 
   typecheck-python:
     name: Typecheck (Python)
@@ -110,30 +79,11 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python source dirs
-        id: pydirs
-        run: |
-          pkg_dirs=""
-          for top in services adapters; do
-            [ -d "$top" ] || continue
-            for pkg in "$top"/*; do
-              [ -d "$pkg" ] || continue
-              if find "$pkg" -name "*.py" -type f | grep -q .; then
-                pkg_dirs="$pkg_dirs $pkg"
-              fi
-            done
-          done
-          pkg_dirs=$(echo "$pkg_dirs" | xargs)
-          if [ -n "$pkg_dirs" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "pkg_dirs=$pkg_dirs" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run mypy
-        if: steps.pydirs.outputs.present == 'true'
-        run: uv run mypy ${{ steps.pydirs.outputs.pkg_dirs }}
+        run: >-
+          uv run mypy
+          services/ingest/src/
+          services/ingest/tests/
 
   test-python:
     name: Test (Python)
@@ -152,33 +102,9 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python packages with tests
-        id: pytests
-        run: |
-          pkg_dirs=""
-          for top in services adapters; do
-            [ -d "$top" ] || continue
-            for pkg in "$top"/*; do
-              if [ -d "$pkg/tests" ] && find "$pkg/tests" -name "*.py" -type f | grep -q .; then
-                pkg_dirs="$pkg_dirs $pkg"
-              fi
-            done
-          done
-          pkg_dirs=$(echo "$pkg_dirs" | xargs)
-          if [ -n "$pkg_dirs" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "pkg_dirs=$pkg_dirs" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python tests yet -- pytest will no-op."
-          fi
-
-      - name: Run pytest
-        if: steps.pytests.outputs.present == 'true'
-        # Pass the package path as the arg so pytest's rootdir is the package
-        # dir, picking up each package's own [tool.pytest.ini_options] config
-        # (asyncio_mode, coverage settings, markers).
-        run: uv run pytest ${{ steps.pytests.outputs.pkg_dirs }} -v -m "not slow"
+      - name: Test ingest
+        working-directory: services/ingest
+        run: uv run python -m pytest tests/ -v -m "not slow"
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)
@@ -228,7 +154,7 @@ jobs:
         run: yarn typecheck
 
   # ===========================================================================
-  # Build gate (requires all lint/typecheck/test jobs to pass)
+  # Build gate (requires all lint/test jobs to pass)
   # ===========================================================================
 
   build:
