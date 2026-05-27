@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.1.0...v1.1.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* **ingest:** change test race condition ([8fe7c3e](https://github.com/caverac/instrument-sterilization-logistics/commit/8fe7c3e08f55db8c50817179195fc3880b6f0eb9))
+
 # [1.1.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.0.0...v1.1.0) (2026-05-27)
 
 
