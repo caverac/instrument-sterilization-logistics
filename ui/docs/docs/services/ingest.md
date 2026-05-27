@@ -148,30 +148,10 @@ The producer is configured with:
 
 ## Local development
 
+See [Local development](../local-development) for stack setup (`make dev-up`, Redpanda Console, the end-to-end POST walkthrough, troubleshooting). To run just this service against an already-up stack:
+
 ```bash
-# 1. Bring up Redpanda + Schema Registry + Console
-make dev-up
-
-# 2. Run the ingest service
 uv run uvicorn ingest.app:create_app --factory --reload --port 8000
-
-# 3. Send a sample event
-curl -X POST http://localhost:8000/events \
-  -H 'content-type: application/json' \
-  -d '{
-    "source_system": "CENSITRAC_BOCA",
-    "source_event_id": "abc-123",
-    "tray_id": "TRAY-001",
-    "facility_id": "BOCA",
-    "event_type": "CHECKED_IN",
-    "timestamp_event": "2026-05-25T14:30:00Z"
-  }'
-
-# 4. Browse the topic in Redpanda Console
-open http://localhost:8080
-
-# 5. Or tail the topic from the CLI
-docker compose exec redpanda rpk topic consume events --num 1 --pretty-print
 ```
 
 ## Testing

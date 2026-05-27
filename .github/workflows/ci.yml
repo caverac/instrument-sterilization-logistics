@@ -107,6 +107,54 @@ jobs:
         run: uv run python -m pytest tests/ -v -m "not slow"
 
   # ===========================================================================
+  # Integration tests
+  #
+  # Brings up the same docker-compose.yml stack used in local dev (Redpanda
+  # + Schema Registry), waits for the broker to report healthy and the topic
+  # init sidecar to finish, then runs the `-m slow` test suite against it.
+  # ===========================================================================
+
+  test-integration:
+    name: Integration Tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Start dev stack
+        run: docker compose up -d
+
+      - name: Wait for Redpanda healthy + topic ready
+        run: |
+          timeout 90 bash -c 'until docker compose ps redpanda --format json | grep -q "\"Health\":\"healthy\""; do sleep 1; done'
+          timeout 30 bash -c 'until docker compose logs redpanda-init 2>&1 | grep -q "topic events ready"; do sleep 1; done'
+
+      - name: Run integration tests
+        # --no-cov: integration tests are not the coverage source of truth;
+        # the unit test job is. The per-package pyproject sets
+        # --cov-fail-under=100, which only the unit run satisfies.
+        working-directory: services/ingest
+        run: uv run python -m pytest tests/ -v -m slow --no-cov
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  # ===========================================================================
   # JS/TS Jobs (run in parallel)
   # ===========================================================================
 
@@ -164,6 +212,7 @@ jobs:
       - lint-python
       - typecheck-python
       - test-python
+      - test-integration
       - lint-js
       - typecheck-js
     steps:

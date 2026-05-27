@@ -37,16 +37,21 @@ def test_event_published_to_kafka_with_schema_registry_wire_format() -> None:
     cfg = _settings()
     sample_source_event_id = f"int-{datetime.now(timezone.utc).timestamp()}"
 
+    # auto.offset.reset=earliest avoids a rebalance race: if partition
+    # assignment lands after the producer publishes, "latest" would skip
+    # past our message. With "earliest" we read from offset 0 regardless
+    # of when the rebalance completes. Topic is fresh on each CI run
+    # (compose volumes are wiped), and each test uses a unique group.id,
+    # so we start from an empty log every time -- cheap to scan.
     consumer = Consumer(
         {
             "bootstrap.servers": cfg.kafka_brokers,
             "group.id": f"int-test-{time.time_ns()}",
-            "auto.offset.reset": "latest",
+            "auto.offset.reset": "earliest",
             "enable.auto.commit": False,
         }
     )
     consumer.subscribe([cfg.kafka_topic])
-    consumer.poll(timeout=2.0)  # join group + get partition assignment
 
     app = create_app(cfg)
     with TestClient(app) as client:
