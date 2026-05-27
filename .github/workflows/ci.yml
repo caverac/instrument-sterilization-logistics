@@ -140,8 +140,11 @@ jobs:
           timeout 30 bash -c 'until docker compose logs redpanda-init 2>&1 | grep -q "topic events ready"; do sleep 1; done'
 
       - name: Run integration tests
+        # --no-cov: integration tests are not the coverage source of truth;
+        # the unit test job is. The per-package pyproject sets
+        # --cov-fail-under=100, which only the unit run satisfies.
         working-directory: services/ingest
-        run: uv run python -m pytest tests/ -v -m slow
+        run: uv run python -m pytest tests/ -v -m slow --no-cov
 
       - name: Dump logs on failure
         if: failure()
