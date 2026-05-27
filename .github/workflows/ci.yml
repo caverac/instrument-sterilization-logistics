@@ -40,32 +40,32 @@ jobs:
       - name: Detect Python sources
         id: pyfiles
         run: |
-          if find packages -name "*.py" -type f 2>/dev/null | grep -q .; then
+          if find services adapters -name "*.py" -type f 2>/dev/null | grep -q .; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python files under packages/ yet — linters will no-op."
+            echo "No Python files under services/ or adapters/ yet -- linters will no-op."
           fi
 
       - name: Check formatting with black
         if: steps.pyfiles.outputs.present == 'true'
-        run: uv run black --check packages/
+        run: uv run black --check services/ adapters/
 
       - name: Check import order with isort
         if: steps.pyfiles.outputs.present == 'true'
-        run: uv run isort --check-only packages/
+        run: uv run isort --check-only services/ adapters/
 
       - name: Lint with flake8
         if: steps.pyfiles.outputs.present == 'true'
-        run: uv run flake8 packages/
+        run: uv run flake8 services/ adapters/
 
       - name: Lint with pylint
         if: steps.pyfiles.outputs.present == 'true'
-        run: uv run pylint packages/
+        run: uv run pylint services/ adapters/
 
       - name: Check docstrings with pydocstyle
         if: steps.pyfiles.outputs.present == 'true'
-        run: uv run pydocstyle packages/
+        run: uv run pydocstyle services/ adapters/
 
   typecheck-python:
     name: Typecheck (Python)
@@ -87,7 +87,7 @@ jobs:
       - name: Detect Python sources
         id: pyfiles
         run: |
-          if find packages -name "*.py" -type f 2>/dev/null | grep -q .; then
+          if find services adapters -name "*.py" -type f 2>/dev/null | grep -q .; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
@@ -95,7 +95,7 @@ jobs:
 
       - name: Run mypy
         if: steps.pyfiles.outputs.present == 'true'
-        run: uv run mypy packages/
+        run: uv run mypy services/ adapters/
 
   test-python:
     name: Test (Python)
@@ -117,16 +117,16 @@ jobs:
       - name: Detect tests
         id: pytests
         run: |
-          if find packages -path "*/tests/*" -name "*.py" -type f 2>/dev/null | grep -q .; then
+          if find services adapters -path "*/tests/*" -name "*.py" -type f 2>/dev/null | grep -q .; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python tests under packages/ yet — pytest will no-op."
+            echo "No Python tests under services/ or adapters/ yet -- pytest will no-op."
           fi
 
       - name: Run pytest
         if: steps.pytests.outputs.present == 'true'
-        run: uv run python -m pytest packages/ -v
+        run: uv run python -m pytest services/ adapters/ -v
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)

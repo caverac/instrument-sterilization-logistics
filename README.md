@@ -2,12 +2,10 @@
 
 Cross-facility coordination layer for offsite surgical-instrument reprocessing networks. Routes pickups to the facility most likely to hit each OR-case deadline, produces contractually defensible SLA reports across facilities, and learns real tray composition from observed reprocessing data to correct stale preference cards.
 
-See [`notebooks/notes/logs/20260525-idea.md`](notebooks/notes/logs/20260525-idea.md) for the full design.
-
 ## Requirements
 
-- [mise](https://mise.jdx.dev/) — manages Node 25, Python 3.14, uv
-- [Yarn 4](https://yarnpkg.com/) — bundled via Corepack
+- [mise](https://mise.jdx.dev/) -- manages Node 25, Python 3.14, uv
+- [Yarn 4](https://yarnpkg.com/) -- bundled via Corepack
 
 ## Setup
 
@@ -23,4 +21,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and code qua
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT -- see [LICENSE](LICENSE).

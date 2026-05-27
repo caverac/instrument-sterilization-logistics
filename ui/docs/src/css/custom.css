@@ -1,0 +1,78 @@
+:root {
+  --ifm-color-primary: #0d6e6e;
+  --ifm-color-primary-dark: #0a5757;
+  --ifm-color-primary-darker: #084a4a;
+  --ifm-color-primary-darkest: #053838;
+  --ifm-color-primary-light: #129494;
+  --ifm-color-primary-lighter: #16a3a3;
+  --ifm-color-primary-lightest: #2cc4c4;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #2cc4c4;
+  --ifm-color-primary-dark: #16a3a3;
+  --ifm-color-primary-darker: #129494;
+  --ifm-color-primary-darkest: #0d6e6e;
+  --ifm-color-primary-light: #5ad3d3;
+  --ifm-color-primary-lighter: #7adcdc;
+  --ifm-color-primary-lightest: #aae8e8;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+.mermaid {
+  background: transparent !important;
+}
+
+/* Acronym tooltips.
+ *
+ * The browser's native title= tooltip has a ~1.5s delay and doesn't show
+ * on keyboard focus or touch, so we render our own via the ::after pseudo
+ * element. The title attribute is still set on the element so it remains
+ * accessible to screen readers. */
+abbr[title] {
+  position: relative;
+  text-decoration: underline dotted var(--ifm-color-primary);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  cursor: help;
+}
+
+abbr[title]::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ifm-color-emphasis-800);
+  color: var(--ifm-color-emphasis-0);
+  padding: 0.5em 0.75em;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 320px;
+  text-align: left;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease-out,
+    visibility 0.12s ease-out;
+}
+
+abbr[title]:hover::after,
+abbr[title]:focus::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Suppress the browser's native delayed title tooltip so we don't double up. */
+abbr[title] {
+  -webkit-touch-callout: none;
+}
