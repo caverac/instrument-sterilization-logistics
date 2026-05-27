@@ -15,9 +15,10 @@ jobs:
   # ===========================================================================
   # Python Jobs (run in parallel)
   #
-  # While `packages/` is empty these jobs install dependencies and no-op the
-  # linters. As soon as the first Python package lands, the linters run for
-  # real against `packages/`.
+  # The `pydirs` detection step emits the actual list of top-level dirs that
+  # exist AND contain Python sources (services, adapters, ...). Downstream
+  # steps consume that list so we don't pass a non-existent directory to
+  # black/mypy/pytest and break the build.
   # ===========================================================================
 
   lint-python:
@@ -37,35 +38,44 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python sources
-        id: pyfiles
+      - name: Detect Python source dirs
+        id: pydirs
         run: |
-          if find services adapters -name "*.py" -type f 2>/dev/null | grep -q .; then
+          dirs=""
+          for d in services adapters; do
+            if [ -d "$d" ] && find "$d" -name "*.py" -type f | grep -q .; then
+              dirs="$dirs $d"
+            fi
+          done
+          dirs=$(echo "$dirs" | xargs)
+          if [ -n "$dirs" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
+            echo "Python source dirs: $dirs"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python files under services/ or adapters/ yet -- linters will no-op."
+            echo "No Python sources yet -- linters will no-op."
           fi
 
       - name: Check formatting with black
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run black --check services/ adapters/
+        if: steps.pydirs.outputs.present == 'true'
+        run: uv run black --check ${{ steps.pydirs.outputs.dirs }}
 
       - name: Check import order with isort
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run isort --check-only services/ adapters/
+        if: steps.pydirs.outputs.present == 'true'
+        run: uv run isort --check-only ${{ steps.pydirs.outputs.dirs }}
 
       - name: Lint with flake8
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run flake8 services/ adapters/
+        if: steps.pydirs.outputs.present == 'true'
+        run: uv run flake8 ${{ steps.pydirs.outputs.dirs }}
 
       - name: Lint with pylint
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run pylint services/ adapters/
+        if: steps.pydirs.outputs.present == 'true'
+        run: uv run pylint ${{ steps.pydirs.outputs.dirs }}
 
       - name: Check docstrings with pydocstyle
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run pydocstyle services/ adapters/
+        if: steps.pydirs.outputs.present == 'true'
+        run: uv run pydocstyle ${{ steps.pydirs.outputs.dirs }}
 
   typecheck-python:
     name: Typecheck (Python)
@@ -84,18 +94,26 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect Python sources
-        id: pyfiles
+      - name: Detect Python source dirs
+        id: pydirs
         run: |
-          if find services adapters -name "*.py" -type f 2>/dev/null | grep -q .; then
+          dirs=""
+          for d in services adapters; do
+            if [ -d "$d" ] && find "$d" -name "*.py" -type f | grep -q .; then
+              dirs="$dirs $d"
+            fi
+          done
+          dirs=$(echo "$dirs" | xargs)
+          if [ -n "$dirs" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run mypy
-        if: steps.pyfiles.outputs.present == 'true'
-        run: uv run mypy services/ adapters/
+        if: steps.pydirs.outputs.present == 'true'
+        run: uv run mypy ${{ steps.pydirs.outputs.dirs }}
 
   test-python:
     name: Test (Python)
@@ -114,19 +132,27 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Detect tests
+      - name: Detect Python test dirs
         id: pytests
         run: |
-          if find services adapters -path "*/tests/*" -name "*.py" -type f 2>/dev/null | grep -q .; then
+          dirs=""
+          for d in services adapters; do
+            if [ -d "$d" ] && find "$d" -path "*/tests/*" -name "*.py" -type f | grep -q .; then
+              dirs="$dirs $d"
+            fi
+          done
+          dirs=$(echo "$dirs" | xargs)
+          if [ -n "$dirs" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No Python tests under services/ or adapters/ yet -- pytest will no-op."
+            echo "No Python tests yet -- pytest will no-op."
           fi
 
       - name: Run pytest
         if: steps.pytests.outputs.present == 'true'
-        run: uv run python -m pytest services/ adapters/ -v
+        run: uv run python -m pytest ${{ steps.pytests.outputs.dirs }} -v -m "not slow"
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)
