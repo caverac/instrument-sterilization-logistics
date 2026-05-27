@@ -91,7 +91,7 @@ def test_lifespan_wires_state_and_flushes_producer(
         assert app.state.serializer is fake_serializer
         assert app.state.topic == "lifespan-topic"
         assert client.get("/healthz").status_code == 200
-    assert fake_producer.flush_calls == 1
+    assert fake_producer.flush_timeouts == [5.0]
 
 
 async def test_dependency_resolvers_read_from_app_state(
@@ -101,8 +101,8 @@ async def test_dependency_resolvers_read_from_app_state(
     request.app.state.producer = fake_producer
     request.app.state.serializer = fake_serializer
     request.app.state.topic = "resolved-topic"
-    assert await get_producer(request) is fake_producer  # type: ignore[comparison-overlap]
-    assert await get_serializer(request) is fake_serializer  # type: ignore[comparison-overlap]
+    assert await get_producer(request) is fake_producer
+    assert await get_serializer(request) is fake_serializer
     assert await get_topic(request) == "resolved-topic"
 
 

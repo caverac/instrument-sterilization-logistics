@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
 from confluent_kafka import Producer
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -17,8 +17,30 @@ from confluent_kafka.serialization import MessageField, SerializationContext
 
 from ingest.events import Event
 
-if TYPE_CHECKING:
-    pass
+
+class KafkaProducer(Protocol):
+    """Structural type for the producer surface ingest depends on.
+
+    Both confluent-kafka's ``Producer`` and the in-memory ``FakeProducer``
+    used in tests satisfy this protocol.
+    """
+
+    def produce(self, *, topic: str, key: bytes, value: bytes) -> None:
+        """Enqueue a message for delivery."""
+
+    def poll(self, timeout: float) -> int:
+        """Serve delivery callbacks; returns the number processed."""
+
+    def flush(self, timeout: float | None = None) -> int:
+        """Flush pending messages; returns the number still in queue."""
+
+
+class EventSerializer(Protocol):
+    """Structural type for a Schema-Registry-aware value serializer."""
+
+    def __call__(self, value: Any, ctx: Any) -> bytes:
+        """Serialize ``value`` for the topic implied by ``ctx``."""
+
 
 # JSON Schema for events as they go on the wire. Mirrors the Pydantic Event
 # model. Registered to Schema Registry on first publish (handled by the
@@ -102,8 +124,8 @@ def make_serializer(schema_registry_url: str) -> JSONSerializer:
 
 
 async def publish_event(
-    producer: Producer,
-    serializer: JSONSerializer,
+    producer: KafkaProducer,
+    serializer: EventSerializer,
     topic: str,
     event: Event,
 ) -> None:

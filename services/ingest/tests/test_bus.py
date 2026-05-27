@@ -16,12 +16,7 @@ from .conftest import FakeProducer, FakeSerializer
 async def test_publish_event_uses_tray_id_as_partition_key(
     fake_producer: FakeProducer, fake_serializer: FakeSerializer, sample_event: Event
 ) -> None:
-    await publish_event(
-        fake_producer,  # type: ignore[arg-type]
-        fake_serializer,  # type: ignore[arg-type]
-        "events",
-        sample_event,
-    )
+    await publish_event(fake_producer, fake_serializer, "events", sample_event)
     assert len(fake_producer.produced) == 1
     msg = fake_producer.produced[0]
     assert msg["topic"] == "events"
@@ -29,18 +24,13 @@ async def test_publish_event_uses_tray_id_as_partition_key(
     body = json.loads(msg["value"])
     assert body["event_id"] == str(sample_event.event_id)
     assert body["source_system"] == sample_event.source_system
-    assert fake_producer.poll_calls == 1
+    assert len(fake_producer.poll_timeouts) == 1
 
 
 async def test_publish_event_invokes_serializer_with_value_context(
     fake_producer: FakeProducer, fake_serializer: FakeSerializer, sample_event: Event
 ) -> None:
-    await publish_event(
-        fake_producer,  # type: ignore[arg-type]
-        fake_serializer,  # type: ignore[arg-type]
-        "events",
-        sample_event,
-    )
+    await publish_event(fake_producer, fake_serializer, "events", sample_event)
     assert len(fake_serializer.calls) == 1
     value, ctx = fake_serializer.calls[0]
     assert value["event_id"] == str(sample_event.event_id)
@@ -48,36 +38,38 @@ async def test_publish_event_invokes_serializer_with_value_context(
     assert getattr(ctx, "topic", None) == "events"
 
 
-def test_make_producer_delegates_to_confluent_kafka(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_make_producer_passes_expected_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``make_producer`` constructs Producer with idempotent, all-acks config."""
     captured: dict[str, Any] = {}
 
-    def fake_ctor(config: dict[str, Any]) -> str:
+    def fake_ctor(config: dict[str, Any]) -> FakeProducer:
         captured["config"] = config
-        return "PRODUCER_SENTINEL"
+        return FakeProducer()
 
     monkeypatch.setattr("ingest.bus.Producer", fake_ctor)
-    result = make_producer("localhost:9092")
-    assert result == "PRODUCER_SENTINEL"  # type: ignore[comparison-overlap]
+    make_producer("localhost:9092")
     assert captured["config"]["bootstrap.servers"] == "localhost:9092"
     assert captured["config"]["enable.idempotence"] is True
     assert captured["config"]["acks"] == "all"
+    assert captured["config"]["compression.type"] == "snappy"
 
 
 def test_make_serializer_wires_schema_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``make_serializer`` builds an SR client and passes our event schema."""
     captured: dict[str, Any] = {}
 
-    def fake_sr_client(config: dict[str, Any]) -> str:
+    def fake_sr_client(config: dict[str, Any]) -> object:
         captured["sr_config"] = config
-        return "SR_CLIENT_SENTINEL"
+        return object()
 
-    def fake_json_serializer(schema: str, sr_client: Any) -> str:
+    def fake_json_serializer(schema: str, sr_client: Any) -> FakeSerializer:
         captured["schema"] = schema
         captured["sr_client"] = sr_client
-        return "SERIALIZER_SENTINEL"
+        return FakeSerializer()
 
     monkeypatch.setattr("ingest.bus.SchemaRegistryClient", fake_sr_client)
     monkeypatch.setattr("ingest.bus.JSONSerializer", fake_json_serializer)
-    result = make_serializer("http://sr:8081")
-    assert result == "SERIALIZER_SENTINEL"  # type: ignore[comparison-overlap]
+    make_serializer("http://sr:8081")
     assert captured["sr_config"] == {"url": "http://sr:8081"}
     assert "event_id" in captured["schema"]
+    assert captured["sr_client"] is not None

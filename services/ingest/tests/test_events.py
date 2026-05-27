@@ -26,16 +26,17 @@ def test_event_in_minimal_defaults() -> None:
 
 
 def test_event_in_rejects_extra_fields() -> None:
+    payload = {
+        "source_system": "X",
+        "source_event_id": "y",
+        "tray_id": "T",
+        "facility_id": "F",
+        "event_type": "CHECKED_IN",
+        "timestamp_event": "2026-01-01T00:00:00+00:00",
+        "unknown_field": "bad",
+    }
     with pytest.raises(ValidationError):
-        EventIn(
-            source_system="X",
-            source_event_id="y",
-            tray_id="T",
-            facility_id="F",
-            event_type=EventType.CHECKED_IN,
-            timestamp_event=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            unknown_field="bad",  # type: ignore[call-arg]
-        )
+        EventIn.model_validate(payload)
 
 
 def test_event_in_rejects_empty_strings() -> None:

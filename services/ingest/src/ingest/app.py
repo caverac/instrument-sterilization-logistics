@@ -5,24 +5,22 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, AsyncIterator
 
-from confluent_kafka import Producer
-from confluent_kafka.schema_registry.json_schema import JSONSerializer
 from fastapi import Depends, FastAPI, Request, status
 
-from ingest.bus import make_producer, make_serializer, publish_event
+from ingest.bus import EventSerializer, KafkaProducer, make_producer, make_serializer, publish_event
 from ingest.config import Settings
 from ingest.events import EventIn, assign_server_fields
 
 
-async def get_producer(request: Request) -> Producer:
+async def get_producer(request: Request) -> KafkaProducer:
     """Resolve the Kafka producer from app state."""
-    producer: Producer = request.app.state.producer
+    producer: KafkaProducer = request.app.state.producer
     return producer
 
 
-async def get_serializer(request: Request) -> JSONSerializer:
+async def get_serializer(request: Request) -> EventSerializer:
     """Resolve the Schema-Registry-aware serializer from app state."""
-    serializer: JSONSerializer = request.app.state.serializer
+    serializer: EventSerializer = request.app.state.serializer
     return serializer
 
 
@@ -32,8 +30,8 @@ async def get_topic(request: Request) -> str:
     return topic
 
 
-ProducerDep = Annotated[Producer, Depends(get_producer)]
-SerializerDep = Annotated[JSONSerializer, Depends(get_serializer)]
+ProducerDep = Annotated[KafkaProducer, Depends(get_producer)]
+SerializerDep = Annotated[EventSerializer, Depends(get_serializer)]
 TopicDep = Annotated[str, Depends(get_topic)]
 
 

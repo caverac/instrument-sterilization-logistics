@@ -42,8 +42,12 @@ omit = ["*/tests/*"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 100
+# Exclude only patterns that are runtime no-ops by definition:
+#   * ``if TYPE_CHECKING:`` blocks are evaluated by mypy, not the interpreter.
+#   * Bodies that are only ``...`` (Protocol method stubs, etc.).
+# Do NOT add ``pragma: no cover`` here -- per project rules, unreachable code
+# must be deleted, not pragma'd around.
 exclude_lines = [
-    "pragma: no cover",
     "if TYPE_CHECKING:",
     "\\.\\.\\.",
 ]

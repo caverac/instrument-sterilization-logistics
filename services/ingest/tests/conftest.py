@@ -12,25 +12,28 @@ from ingest.events import Event, EventIn, EventType, assign_server_fields
 
 
 class FakeProducer:
-    """In-memory stand-in for a confluent-kafka Producer."""
+    """In-memory stand-in for a confluent-kafka Producer.
+
+    Satisfies the ``ingest.bus.KafkaProducer`` protocol structurally.
+    """
 
     def __init__(self) -> None:
         self.produced: list[dict[str, Any]] = []
-        self.poll_calls: int = 0
-        self.flush_calls: int = 0
+        self.poll_timeouts: list[float] = []
+        self.flush_timeouts: list[float | None] = []
 
-    def produce(self, *, topic: str, key: bytes, value: bytes, **_: Any) -> None:
+    def produce(self, *, topic: str, key: bytes, value: bytes) -> None:
         """Record the message in-memory."""
         self.produced.append({"topic": topic, "key": key, "value": value})
 
-    def poll(self, _timeout: float) -> int:
-        """Record the poll call (used by Producer to serve delivery callbacks)."""
-        self.poll_calls += 1
+    def poll(self, timeout: float) -> int:
+        """Record the poll call and the timeout the caller passed."""
+        self.poll_timeouts.append(timeout)
         return 0
 
-    def flush(self, timeout: float | None = None) -> int:  # pylint: disable=unused-argument
-        """Record the flush call (used on shutdown)."""
-        self.flush_calls += 1
+    def flush(self, timeout: float | None = None) -> int:
+        """Record the flush call and the timeout the caller passed."""
+        self.flush_timeouts.append(timeout)
         return 0
 
 
@@ -39,6 +42,7 @@ class FakeSerializer:
 
     Skips the magic-byte + schema-id wire-format wrapping that the real
     serializer applies; tests don't need the wire format, only the payload.
+    Satisfies the ``ingest.bus.EventSerializer`` protocol structurally.
     """
 
     def __init__(self) -> None:
