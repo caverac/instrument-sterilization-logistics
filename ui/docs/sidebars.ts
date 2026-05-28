@@ -7,7 +7,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Services',
-      items: ['services/ingest']
+      items: ['services/ingest', 'services/synth-events']
     },
     'roadmap',
     'glossary'
