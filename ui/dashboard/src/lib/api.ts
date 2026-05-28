@@ -4,8 +4,10 @@
  */
 
 import type {
+  BacktestSummaryResponse,
   DecideRequest,
   DecideResponse,
+  ModelSummaryResponse,
   RecentJourneysResponse,
   TrayStatesResponse
 } from './types'
@@ -40,4 +42,12 @@ export async function getTrayStates(): Promise<TrayStatesResponse> {
 
 export async function getRecentJourneys(): Promise<RecentJourneysResponse> {
   return fetchJson('/operations/recent-journeys')
+}
+
+export async function getBacktestSummary(): Promise<BacktestSummaryResponse> {
+  return fetchJson('/backtest/summary')
+}
+
+export async function getModelSummary(): Promise<ModelSummaryResponse> {
+  return fetchJson('/model/summary')
 }

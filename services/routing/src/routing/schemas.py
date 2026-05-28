@@ -41,3 +41,58 @@ class DecideResponse(BaseModel):
 
     facilities: list[FacilityCell]
     policies: list[PolicyDecision]
+
+
+class BacktestPolicySummary(BaseModel):
+    """Aggregated per-policy outcomes from the cached backtest run."""
+
+    policy_id: str
+    on_time_rate: float
+    mean_delay_min: float
+    p95_delay_min: float
+
+
+class BacktestLift(BaseModel):
+    """On-time-rate lift of one policy over another with a 95% bootstrap CI.
+
+    All three pp fields are percentage points, not fractions: ``+4.7`` means
+    "4.7 percentage points higher on-time rate".
+    """
+
+    policy_id: str
+    vs: str
+    point_pp: float
+    ci_95_lo_pp: float
+    ci_95_hi_pp: float
+
+
+class BacktestSummaryResponse(BaseModel):
+    """Response body for ``GET /backtest/summary``."""
+
+    n: int
+    per_policy: list[BacktestPolicySummary]
+    lifts: list[BacktestLift]
+
+
+class ParameterSummary(BaseModel):
+    """Posterior summary for one scalar model parameter.
+
+    ``p5`` / ``p50`` / ``p95`` are the 5th / 50th / 95th posterior
+    percentiles -- a 90% central credible interval plus the median.
+    """
+
+    name: str
+    mean: float
+    sd: float
+    p5: float
+    p50: float
+    p95: float
+
+
+class ModelSummaryResponse(BaseModel):
+    """Response body for ``GET /model/summary``."""
+
+    n_samples: int
+    facility_ids: list[str]
+    tray_type_ids: list[str]
+    parameters: list[ParameterSummary]

@@ -14,18 +14,18 @@ What works end-to-end right now:
 - **Redpanda** running via `docker compose up`; topic `events` (6 partitions, snappy compression, 7-day retention) created on first boot.
 - **`services/ingest`** -- FastAPI service: `POST /events` validates with Pydantic (`extra="forbid"`), derives a deterministic UUIDv5 `event_id` from `(source_system, source_event_id)`, publishes to Kafka in Confluent JSON-Schema wire format. Schema registers under `events-value` on first publish. 100% test coverage, integration tests against the real broker.
 - **`services/synth-events`** -- CLI + library that generates synthetic `journey` parquet rows shaped like the future `projector` output. Three facilities with deliberately different `(mean, variance)` profiles so variance-aware routing has something to find. Fully reproducible from a seed.
-- **`services/routing`** -- the hierarchical Bayesian model (PyMC NUTS, partial pooling across facilities and tray types) + three policies (`variance-aware`, `mean-only`, `proximity`) + a backtest harness with paired-bootstrap lift CIs + a FastAPI service exposing `POST /decide`. The service also exposes read-only `GET /operations/tray-states` and `GET /operations/recent-journeys` that pass through to the projector's Postgres tables. CLI `routing fit` and `routing backtest` work standalone.
+- **`services/routing`** -- the hierarchical Bayesian model (PyMC NUTS, partial pooling across facilities and tray types) + three policies (`variance-aware`, `mean-only`, `proximity`) + a backtest harness with paired-bootstrap lift CIs + a FastAPI service exposing `POST /decide`. The service also exposes `GET /backtest/summary` (head-to-head policy comparison, cached at startup), `GET /model/summary` (per-parameter posterior summaries, cached at startup), and read-only `GET /operations/tray-states` / `GET /operations/recent-journeys` that pass through to the projector's Postgres tables. CLI `routing fit` and `routing backtest` work standalone.
 - **`services/projector`** -- Kafka consumer subscribed to `events`. Maintains `tray` (current state), `journey_open` (intermediate per-cycle state), and `journey` (finalized rows mirroring synth-events parquet). Postgres schema initialised idempotently at startup; commits Kafka offsets only after Postgres writes succeed. See [Projector](services/projector).
 - **`synth-events publish`** -- CLI subcommand that POSTs N synthetic journeys (10 events each) through ingest, so the projector + dashboard have realistic data to work against before any real client onboards.
 - **Postgres** -- in `docker-compose.yml` as the projector's projection store.
-- **`ui/dashboard`** -- Vite + React 19 + Tailwind 4. **Explorer** and **Operations** tabs are live (the Operations tab renders the projector's `tray` and `journey` tables). Backtest, Calibration, and Model tabs are placeholders pending endpoints (see [Dashboard](dashboard)).
+- **`ui/dashboard`** -- Vite + React 19 + Tailwind 4. **Explorer**, **Operations**, **Backtest**, and **Model** tabs are live (Operations renders the projector's `tray` and `journey` tables; Backtest renders the cached head-to-head policy comparison; Model renders per-parameter posterior summaries grouped by global / per-facility / per-tray-type). Calibration is the last placeholder (see [Dashboard](dashboard)).
 - **`ui/docs`** -- this Docusaurus site, deployed to GitHub Pages via the release workflow.
 
 ## Next up
 
 The immediate priorities, in rough order. None of these are blocked by external triggers -- they are the things that turn the existing pieces into a continuously-running pipeline.
 
-1. **Remaining routing-service endpoints to unblock dashboard tabs.** `GET /backtest/summary` (Backtest tab), `GET /model/summary` (Model tab), `GET /calibration/reliability` (Calibration tab -- now unblocked since the projector emits `journey` rows with `on_time` / `delay_min`). Small backend lifts; large UX wins.
+1. **Last routing-service endpoint to unblock the dashboard.** `GET /calibration/reliability` for the Calibration tab -- read journey rows from Postgres, score each through the posterior, bin predicted P(on-time) vs observed on-time rate.
 2. **Switch the routing fit pipeline's input from synth-events parquet to projector Postgres.** Once enough real journey volume accumulates, `routing fit` reads from the `journey` table instead of `--in journeys.parquet`. The bridge is in place; the model just needs the SQL loader.
 3. **Kafka Connect S3 sink + MinIO in `docker-compose.yml`.** Day-partitioned object writes of the raw event log. Long-term immutable archive; backfill source for new consumers.
 4. **Connection pool on `/operations/*`.** Today the routing service opens a fresh psycopg connection per request -- fine for polling traffic, replace with `psycopg.ConnectionPool` once the dashboard has multiple concurrent users.
@@ -72,12 +72,12 @@ Each row is a thing the design contemplated but we have not built. The trigger i
 
 ### `routing`
 
-| When                                                     | Change                                                                                          | Reason                                                                                          |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Dashboard wiring for Backtest / Model / Calibration tabs | Add `GET /backtest/summary`, `GET /model/summary`, `GET /calibration/reliability`               | The endpoints don't exist yet; the tabs are stubbed until they do                               |
-| Sustained dashboard load on `/operations/*`              | Replace per-request `psycopg.connect` with a `psycopg.ConnectionPool`                           | Per-request is fine for one-user polling; pool kicks in once concurrent users matter            |
-| Real journey rows accumulate in `journey`                | Switch the fit pipeline's input from `journeys.parquet` to a Postgres query                     | Synth-events stays around for backtests against fixed distributions                             |
-| First production deploy                                  | Add a `routing-recalibrator` job that re-fits nightly on rolling-window data from the projector | Fitting at request time is too slow for a hot path; the model needs to track drift continuously |
+| When                                        | Change                                                                                          | Reason                                                                                          |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Dashboard wiring for the Calibration tab    | Add `GET /calibration/reliability`                                                              | The endpoint doesn't exist yet; the tab is stubbed until it does                                |
+| Sustained dashboard load on `/operations/*` | Replace per-request `psycopg.connect` with a `psycopg.ConnectionPool`                           | Per-request is fine for one-user polling; pool kicks in once concurrent users matter            |
+| Real journey rows accumulate in `journey`   | Switch the fit pipeline's input from `journeys.parquet` to a Postgres query                     | Synth-events stays around for backtests against fixed distributions                             |
+| First production deploy                     | Add a `routing-recalibrator` job that re-fits nightly on rolling-window data from the projector | Fitting at request time is too slow for a hot path; the model needs to track drift continuously |
 
 ### `projector`
 

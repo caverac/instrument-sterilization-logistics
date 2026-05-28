@@ -45,15 +45,15 @@ The dashboard makes HTTP calls to the routing service via Vite's `/api` proxy (c
 
 ## Tabs
 
-The sidebar has five tabs; **Explorer** and **Operations** are live, the other three are placeholder stubs today.
+The sidebar has five tabs; **Explorer**, **Operations**, **Backtest**, and **Model** are live; **Calibration** is the last placeholder.
 
 | Tab         | Status      | Backed by                                                                                  |
 | ----------- | ----------- | ------------------------------------------------------------------------------------------ |
 | Explorer    | **Live**    | `POST /decide` on the routing service                                                      |
 | Operations  | **Live**    | `GET /operations/tray-states` and `GET /operations/recent-journeys` on the routing service |
-| Backtest    | Placeholder | Will call a future `GET /backtest/summary` endpoint                                        |
+| Backtest    | **Live**    | `GET /backtest/summary` on the routing service                                             |
+| Model       | **Live**    | `GET /model/summary` on the routing service                                                |
 | Calibration | Placeholder | Will call a future `GET /calibration/reliability` endpoint                                 |
-| Model       | Placeholder | Will read the posterior summary directly from `model.npz`                                  |
 
 ### Explorer (live)
 
@@ -95,17 +95,15 @@ The "what's actually happening" view, sourced entirely from the projector's Post
 
 **When the routing service can't reach Postgres**, the page surfaces the 503 as a "Projector store unreachable" card.
 
-### Backtest (placeholder)
+### Backtest (live)
 
-What it **will** show:
+The head-to-head policy comparison rendered from `GET /backtest/summary` -- the routing service runs one simulation against synth-events' true distribution at startup (deterministic given posterior, seed, and N) and caches the result. Sections:
 
-- The lift table from `routing backtest`: per-policy on-time rate, mean delay, p95 delay.
-- Bootstrap CIs for variance-aware vs mean-only and vs proximity.
-- A bar chart of the on-time-rate comparison.
+- **On-time rate per policy** -- bar chart, three bars. The point of the model is to beat the proximity baseline by a defensible margin; this is the headline visual.
+- **Per-policy aggregates** -- table of on-time rate, mean signed delay, and p95 delay (a tail-risk proxy) for each of the three policies.
+- **Lift over baselines** -- table of variance-aware vs mean-only and variance-aware vs proximity, in on-time-rate percentage points. 95% CI from 1000 paired bootstrap resamples. A CI that excludes zero gets a `significant` badge -- that's the "the model helps" signal.
 
-What it shows today: a card pointing at the design intent and the `routing backtest` CLI.
-
-Why it's not wired yet: the routing service doesn't expose a backtest endpoint. Once `GET /backtest/summary` exists (probably caching one backtest run and serving the result), the tab connects in a few lines.
+The cached run is sized by the routing service's `ROUTING_BACKTEST_N` env var (default 3000). To recompute against a different N or seed, restart the routing service with new env vars.
 
 ### Calibration (placeholder)
 
@@ -119,39 +117,39 @@ What it shows today: a card explaining the design.
 
 Why it's not wired yet: calibration only makes sense against real outcomes. With synth-events the model and the data generator agree by construction, so reliability is nearly perfect by definition -- there's nothing to display. This tab gates on the `projector` consumer landing and producing real `journey` rows we can score against.
 
-### Model (placeholder)
+### Model (live)
 
-What it **will** show:
+Per-parameter posterior summaries rendered from `GET /model/summary` -- the routing service computes these once at startup over the loaded posterior and caches them. Three sections, each a table:
 
-- Posterior summary statistics: facility-level $\alpha$ effects, $\sigma_{\text{facility}}$ estimates, tray-type effects, peak shift.
-- Trace plots and R-hat / ESS diagnostics from the fit.
-- Posterior predictive overlay vs. observed dwell-time distributions.
+- **Global** -- `mu_global` (baseline log-mean), `gamma_peak` (peak-hour shift), `mu_transport`, `sigma_transport`.
+- **Per-facility** -- `alpha[*]` (log-mean offset per facility) and `sigma_facility[*]` (per-facility observation sigma -- the tail-of-the-distribution parameter the variance-aware policy exploits).
+- **Per-tray-type** -- `beta[*]` (complexity offset in log-space).
 
-What it shows today: a card describing the model.
+Each row shows mean, posterior SD, and the 90% central credible interval (5th-95th percentile).
 
-Why it's not wired yet: the dashboard would need either a `GET /model/summary` endpoint or the ability to read the `.npz` directly. Trivial to add once we decide which path; held off for now to keep this turn's scope contained.
+**Not shown**: R-hat, effective sample size, and trace plots. The routing service loads the flattened (chains x draws) posterior, so the chain structure is gone by the time we get here. Rerun `uv run routing fit` and inspect the NUTS warnings to check convergence.
 
 ## What you CAN do today
 
-| Workflow                                                                                | Where                                         |
-| --------------------------------------------------------------------------------------- | --------------------------------------------- |
-| See the three routing policies' choices for an arbitrary (tray, hour, deadline, client) | Explorer                                      |
-| See per-facility expected completion + P(on-time) under the current cell                | Explorer (facility cards)                     |
-| Compare the candidate scores each policy considered                                     | Explorer (policy cards)                       |
-| Watch the variance-aware advantage materialize as you tighten the deadline              | Explorer (deadline slider)                    |
-| Confirm the peak-hour effect is captured by the model                                   | Explorer (hour slider into 08-12 or 14-18)    |
-| Verify policy-independence of tray type and client (only proximity reads the client)    | Explorer (switch the dropdowns)               |
-| See what the projector has captured (current tray states, recent finalized journeys)    | Operations                                    |
-| Watch a live event propagate from POST -> Kafka -> Postgres -> UI                       | Operations (with the live-tracking script)    |
-| See the bootstrap-CI lift numbers                                                       | `uv run routing backtest` CLI, not the UI yet |
+| Workflow                                                                                | Where                                      |
+| --------------------------------------------------------------------------------------- | ------------------------------------------ |
+| See the three routing policies' choices for an arbitrary (tray, hour, deadline, client) | Explorer                                   |
+| See per-facility expected completion + P(on-time) under the current cell                | Explorer (facility cards)                  |
+| Compare the candidate scores each policy considered                                     | Explorer (policy cards)                    |
+| Watch the variance-aware advantage materialize as you tighten the deadline              | Explorer (deadline slider)                 |
+| Confirm the peak-hour effect is captured by the model                                   | Explorer (hour slider into 08-12 or 14-18) |
+| Verify policy-independence of tray type and client (only proximity reads the client)    | Explorer (switch the dropdowns)            |
+| See what the projector has captured (current tray states, recent finalized journeys)    | Operations                                 |
+| Watch a live event propagate from POST -> Kafka -> Postgres -> UI                       | Operations (with the live-tracking script) |
+| See the bootstrap-CI lift numbers                                                       | Backtest                                   |
 
 ## What you CAN'T do yet
 
 | Wanted                                                         | Blocker                                                                                                                      |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| See backtest lift charts in the UI                             | Routing service doesn't expose `GET /backtest/summary`                                                                       |
-| See a reliability diagram                                      | No real outcome data yet -- gates on the `projector` + real journey rows                                                     |
-| See posterior diagnostics (trace plots, R-hat)                 | Routing service doesn't expose `GET /model/summary`. Easy add when we decide the format                                      |
+| Re-run the backtest with a different N or seed from the UI     | Cached at routing-service startup; changing it means restarting the service with new `ROUTING_BACKTEST_*` env vars           |
+| See a reliability diagram                                      | Routing service doesn't expose `GET /calibration/reliability` yet                                                            |
+| See R-hat / ESS / trace plots                                  | Posterior is flattened at save time -- chain structure is gone. Need to extend `routing fit` to keep chain ids on disk first |
 | See historical _routing decisions_ or audit a routed pickup    | We don't route real pickups yet. Gates on a future dispatch loop writing routing decisions back to the log                   |
 | Compare alternative deadline distributions or transport models | No "what-if" framework in the routing API. Would need a new endpoint that re-runs the policy with overridden hyperparameters |
 | Save / share a specific cell as a URL                          | No URL-state encoding yet. Trivial to add (React Router search params)                                                       |
@@ -169,8 +167,7 @@ Why it's not wired yet: the dashboard would need either a `GET /model/summary` e
 
 See [Roadmap](./roadmap) for what's built and what's next. Concrete next steps for this UI, in rough order:
 
-1. Wire Backtest tab -- needs `GET /backtest/summary` on the routing service.
-2. Wire Model tab -- needs `GET /model/summary` on the routing service.
+1. Wire Calibration tab -- the data is there now (projector emits `journey` rows with `on_time` and `delay_min`); needs a routing-service endpoint that scores each row against the posterior and bins predicted P(on-time) vs realised on-time rate.
+2. Forest plot of the posterior parameters on the Model tab (mean + CI brackets) alongside the table.
 3. URL-state encoding so a cell can be linked.
 4. Plot per-facility completion-time distributions (recharts) overlaid on the Explorer cards, so you can _see_ the variance differences instead of inferring from the P(on-time) number.
-5. Wire Calibration tab -- the data is there now (projector emits `journey` rows with `on_time` and `delay_min`); needs a routing-service endpoint that scores each row against the posterior and bins predicted P(on-time) vs realised on-time rate.

@@ -254,6 +254,35 @@ The FastAPI service exposes three surfaces today: `POST /decide` (the modelling 
 
 `POST /decide` -- the model surface; see [Dashboard -- Explorer](../dashboard#explorer-live) for the request/response shape.
 
+`GET /model/summary` -- per-parameter posterior summaries computed at startup. Used by the dashboard's Model tab. Returns `mean`, `sd`, and the 5th / 50th / 95th posterior percentiles for every scalar parameter. Parameter naming uses NumPy-style indexing: `alpha[BOCA]`, `sigma_facility[ELM]`, `beta[TRAY-KNEE]`, etc. R-hat / ESS / trace plots are deliberately not in the response -- the loaded posterior is flattened (chains have been collapsed) so chain-aware diagnostics aren't recoverable here.
+
+`GET /backtest/summary` -- the head-to-head policy comparison cached at startup. Used by the dashboard's Backtest tab. Lifespan calls `run_simulation(posterior, synth_events_data_generator(), n, rng)` once, stores the result on `app.state`, and the endpoint returns it as JSON. Response shape:
+
+```json
+{
+  "n": 3000,
+  "per_policy": [
+    {
+      "policy_id": "variance-aware",
+      "on_time_rate": 0.526,
+      "mean_delay_min": 1.5,
+      "p95_delay_min": 124.6
+    }
+  ],
+  "lifts": [
+    {
+      "policy_id": "variance-aware",
+      "vs": "proximity",
+      "point_pp": 4.7,
+      "ci_95_lo_pp": 3.2,
+      "ci_95_hi_pp": 6.1
+    }
+  ]
+}
+```
+
+Sized by `ROUTING_BACKTEST_N` (default 3000) and seeded by `ROUTING_BACKTEST_SEED` (default 100). Deterministic for a given (posterior, seed, N) -- recompute by restarting the service.
+
 `GET /operations/tray-states` -- the most recently updated rows from the projector's `tray` table (default cap: 50). Used by the dashboard's Operations tab. Response:
 
 ```json
@@ -302,12 +331,14 @@ uv run routing backtest --model model.npz --n 5000 --seed 100
 
 ### Environment variables (service)
 
-| Variable                   | Default                                                     | Notes                                                                               |
-| -------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `ROUTING_MODEL_PATH`       | `model.npz`                                                 | Posterior `.npz` archive loaded at startup; must be produced by `routing fit` first |
-| `ROUTING_SEED`             | `42`                                                        | RNG seed for posterior-predictive sampling at decide time                           |
-| `ROUTING_POSTGRES_DSN`     | `postgresql://projector:projector@localhost:5432/projector` | Read-only connection to the projector's projection store; used by `/operations/*`   |
-| `ROUTING_OPERATIONS_LIMIT` | `50`                                                        | Max rows returned by either `/operations/*` endpoint (1--500)                       |
+| Variable                   | Default                                                     | Notes                                                                                |
+| -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `ROUTING_MODEL_PATH`       | `model.npz`                                                 | Posterior `.npz` archive loaded at startup; must be produced by `routing fit` first  |
+| `ROUTING_SEED`             | `42`                                                        | RNG seed for posterior-predictive sampling at decide time                            |
+| `ROUTING_POSTGRES_DSN`     | `postgresql://projector:projector@localhost:5432/projector` | Read-only connection to the projector's projection store; used by `/operations/*`    |
+| `ROUTING_OPERATIONS_LIMIT` | `50`                                                        | Max rows returned by either `/operations/*` endpoint (1--500)                        |
+| `ROUTING_BACKTEST_N`       | `3000`                                                      | Pickups simulated at startup for the cached `/backtest/summary` response (10--20000) |
+| `ROUTING_BACKTEST_SEED`    | `100`                                                       | RNG seed for the startup-cached backtest                                             |
 
 ## Testing
 
@@ -326,8 +357,6 @@ cd services/routing && uv run python -m pytest tests/ -v
 
 | Not building                          | Triggered by                                                                                                                             |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /backtest/summary`               | Dashboard's Backtest tab wiring. CLI works today (`routing backtest`); the endpoint is a small wrapper                                   |
-| `GET /model/summary`                  | Dashboard's Model tab wiring. Either reads the `.npz` directly or summarises the posterior at startup                                    |
 | `GET /calibration/reliability`        | Dashboard's Calibration tab. Joins predicted P(on-time) against the projector's `journey.on_time` and bins the result                    |
 | Connection pooling on `/operations/*` | Sustained dashboard load. Today is a fresh psycopg connection per request; fine for polling traffic, replace with `ConnectionPool` later |
 | Calibration / drift monitoring        | First real-world data lands; we can't observe drift against synth-events because its distribution is fixed                               |
