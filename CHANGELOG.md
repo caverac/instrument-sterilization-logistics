@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.2.0...v1.3.0) (2026-05-28)
+
+
+### Features
+
+* added dashboard ([c938749](https://github.com/caverac/instrument-sterilization-logistics/commit/c938749f1f6f4b8d7279d1f330e39485fe1017e8))
+
 # [1.2.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.1.1...v1.2.0) (2026-05-28)
 
 
