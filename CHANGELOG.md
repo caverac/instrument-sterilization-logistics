@@ -1,3 +1,15 @@
+# [1.2.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.1.1...v1.2.0) (2026-05-28)
+
+
+### Bug Fixes
+
+* **synth-events:** pre-commit hooks was not testing synth-events ([89b90ea](https://github.com/caverac/instrument-sterilization-logistics/commit/89b90eae458e6e86f3dd49c6f835dc105afed112))
+
+
+### Features
+
+* **services:** added synthetic events generator ([cb24dcb](https://github.com/caverac/instrument-sterilization-logistics/commit/cb24dcbaff454d7b1a6f93ee18c0f40f01eeda06))
+
 ## [1.1.1](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.1.0...v1.1.1) (2026-05-27)
 
 
