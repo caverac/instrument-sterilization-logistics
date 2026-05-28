@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.4.0...v1.5.0) (2026-05-28)
+
+
+### Features
+
+* connect routing service with dashboard ([b75d5cc](https://github.com/caverac/instrument-sterilization-logistics/commit/b75d5ccff8ef877a472062df3b5789012761690f))
+
 # [1.4.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.3.0...v1.4.0) (2026-05-28)
 
 
