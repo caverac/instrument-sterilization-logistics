@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.6.0...v1.7.0) (2026-05-28)
+
+
+### Features
+
+* **dashboard:** completed backtest route ([4b4a275](https://github.com/caverac/instrument-sterilization-logistics/commit/4b4a2751137f4e2e0a4d0a40c46f5e881cb7edd4))
+
 # [1.6.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.5.0...v1.6.0) (2026-05-28)
 
 
