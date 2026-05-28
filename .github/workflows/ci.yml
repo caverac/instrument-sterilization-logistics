@@ -38,29 +38,44 @@ jobs:
           uv run black --check
           services/ingest/src/
           services/ingest/tests/
+          services/synth-events/src/
+          services/synth-events/tests/
 
       - name: Check import order with isort
         run: >-
           uv run isort --check-only
           services/ingest/src/
           services/ingest/tests/
+          services/synth-events/src/
+          services/synth-events/tests/
 
       - name: Lint with flake8
         run: >-
           uv run flake8
           services/ingest/src/
           services/ingest/tests/
+          services/synth-events/src/
+          services/synth-events/tests/
 
-      - name: Lint with pylint
+      # Pylint runs per-package so tests/__init__.py from different
+      # packages don't collide on the `tests.conftest` module name.
+      - name: Lint with pylint (ingest)
         run: >-
           uv run pylint
           services/ingest/src/
           services/ingest/tests/
 
+      - name: Lint with pylint (synth-events)
+        run: >-
+          uv run pylint
+          services/synth-events/src/
+          services/synth-events/tests/
+
       - name: Check docstrings with pydocstyle
         run: >-
           uv run pydocstyle
           services/ingest/src/
+          services/synth-events/src/
 
   typecheck-python:
     name: Typecheck (Python)
@@ -84,6 +99,8 @@ jobs:
           uv run mypy
           services/ingest/src/
           services/ingest/tests/
+          services/synth-events/src/
+          services/synth-events/tests/
 
   test-python:
     name: Test (Python)
@@ -105,6 +122,10 @@ jobs:
       - name: Test ingest
         working-directory: services/ingest
         run: uv run python -m pytest tests/ -v -m "not slow"
+
+      - name: Test synth-events
+        working-directory: services/synth-events
+        run: uv run python -m pytest tests/ -v
 
   # ===========================================================================
   # Integration tests

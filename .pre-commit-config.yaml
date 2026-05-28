@@ -24,12 +24,22 @@ repos:
         types: [python]
         files: ^(services|adapters)/
 
-      - id: pylint
-        name: pylint
+      # Pylint runs per-package so tests/__init__.py from different
+      # packages don't collide on the `tests.conftest` module name.
+      # Add one hook per Python package as packages are added.
+      - id: pylint-ingest
+        name: pylint (ingest)
         entry: uv run pylint
         language: system
         types: [python]
-        files: ^(services|adapters)/
+        files: ^services/ingest/
+
+      - id: pylint-synth-events
+        name: pylint (synth-events)
+        entry: uv run pylint
+        language: system
+        types: [python]
+        files: ^services/synth-events/
 
       - id: pydocstyle
         name: pydocstyle
@@ -38,10 +48,17 @@ repos:
         types: [python]
         files: ^(services|adapters)/.*/src/
 
-      # --- Python typecheck (whole-project, not per-file -- mypy doesn't compose per-file well in strict mode) ---
+      # --- Python typecheck (whole-project, not per-file -- mypy doesn't
+      # --- compose per-file well in strict mode). Keep this path list in
+      # --- sync with the Run mypy step in .github/workflows/ci.yml.
       - id: mypy
         name: mypy
-        entry: uv run mypy services/ingest/src/ services/ingest/tests/
+        entry: >-
+          uv run mypy
+          services/ingest/src/
+          services/ingest/tests/
+          services/synth-events/src/
+          services/synth-events/tests/
         language: system
         types: [python]
         pass_filenames: false
