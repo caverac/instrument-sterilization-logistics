@@ -3,10 +3,13 @@ name = "synth-events"
 version = "0.0.0"
 description = "Synthetic journey generator for modeling and demo work."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "click>=8.1",
-    "numpy>=2.0",
+    # numpy 1.26+ accepted -- our APIs don't use numpy 2 features and
+    # pinning lower lets us share a venv with services/routing (PyMC
+    # 5.19 / pytensor 2.26 doesn't support numpy 2).
+    "numpy>=1.26",
     "pyarrow>=18.0",
 ]
 

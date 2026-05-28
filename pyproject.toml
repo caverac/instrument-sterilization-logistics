@@ -2,22 +2,24 @@
 name = "instrument-sterilization-logistics-workspace"
 version = "0.0.0"
 description = "uv workspace root -- not a real package"
-requires-python = ">=3.14"
+requires-python = ">=3.12,<3.13"
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["services/ingest", "services/synth-events"]
+members = ["services/ingest", "services/synth-events", "services/routing"]
 
 [tool.uv.sources]
 ingest = { workspace = true }
 synth-events = { workspace = true }
+routing = { workspace = true }
 
 [dependency-groups]
 dev = [
     "ingest",
     "synth-events",
+    "routing",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.0.0",
@@ -40,12 +42,12 @@ dev = [
 
 [tool.black]
 line-length = 120
-target-version = ["py314"]
+target-version = ["py312"]
 
 [tool.isort]
 profile = "black"
 line_length = 120
-known_first_party = ["ingest", "synth_events"]
+known_first_party = ["ingest", "synth_events", "routing"]
 
 [tool.pylint.main]
 ignore-patterns = ['.*\.pyi$']
@@ -77,15 +79,19 @@ disable = [
 convention = "numpy"
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
 explicit_package_bases = true
-mypy_path = ["services/ingest/src", "services/synth-events/src"]
+mypy_path = ["services/ingest/src", "services/synth-events/src", "services/routing/src"]
 
 [[tool.mypy.overrides]]
 module = ["confluent_kafka", "confluent_kafka.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pymc", "pytensor", "pytensor.tensor"]
 ignore_missing_imports = true
 
 [tool.pyright]
