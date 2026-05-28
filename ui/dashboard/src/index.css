@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+@theme {
+  /* ISL palette -- dark mode with teal accent (matches the docs site logo). */
+  --color-primary: #2cc4c4;
+  --color-primary-foreground: #053838;
+  --color-secondary: #1e293b;
+  --color-secondary-foreground: #e2e8f0;
+  --color-background: #0a1929;
+  --color-foreground: #f1f5f9;
+  --color-muted: #1e293b;
+  --color-muted-foreground: #94a3b8;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #ffffff;
+  --color-border: #1f3247;
+  --color-input: #1f3247;
+  --color-ring: #2cc4c4;
+  --color-card: #122236;
+  --color-card-foreground: #f1f5f9;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+
+  /* Per-facility accent colors used in plots and badges. */
+  --color-boca: #f97316;
+  --color-lgb: #2cc4c4;
+  --color-elm: #a78bfa;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      'Inter',
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+}

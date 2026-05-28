@@ -222,6 +222,26 @@ jobs:
       - name: Run TypeScript checks
         run: yarn typecheck
 
+  test-js:
+    name: Test (JS/TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run JS/TS tests
+        run: yarn workspaces foreach -Apt run test
+
   # ===========================================================================
   # Build gate (requires all lint/test jobs to pass)
   # ===========================================================================
@@ -236,6 +256,7 @@ jobs:
       - test-integration
       - lint-js
       - typecheck-js
+      - test-js
     steps:
       - uses: actions/checkout@v4
 
