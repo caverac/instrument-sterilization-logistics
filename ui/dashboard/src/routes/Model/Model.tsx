@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function Model() {
   return (
@@ -14,18 +14,14 @@ export function Model() {
 
       <Card>
         <CardHeader>
-          <CardTitle>numpyro hierarchical fit</CardTitle>
+          <CardTitle>Needs a routing-service endpoint</CardTitle>
           <CardDescription>
-            Diagnostics surface once the first fit lands. R-hat, ESS per parameter, posterior
-            predictive overlays.
+            The PyMC fit runs today via the CLI: <code>uv run routing fit</code> writes a posterior{' '}
+            <code>.npz</code> archive. This tab wires up once the routing service exposes{' '}
+            <code>GET /model/summary</code> (or reads the <code>.npz</code> directly). Planned
+            surfaces: R-hat, ESS per parameter, posterior-predictive overlays.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Refit cadence: nightly. Rolling 90-day window with slow shrink toward all-time
-            hyperparameters.
-          </p>
-        </CardContent>
       </Card>
     </div>
   )

@@ -9,6 +9,28 @@ The variance-aware routing model: a hierarchical Bayesian fit on journey data + 
 
 This is where the data-science work lives. The ingest service captures events, synth-events generates training data, and `routing` is the thing that turns it into actual decisions: given a tray to pick up and a deadline, which facility should we send it to?
 
+## What this service does
+
+For every pickup, the service answers one question: **which facility should this tray go to?** It answers it three different ways, and runs the three side-by-side so we can measure which one actually helps.
+
+The three policies, in plain English:
+
+- **Variance-aware** -- uses the full predicted distribution of completion time at each facility and picks the one most likely to beat the deadline. Reacts to the deadline; reacts to the model's uncertainty. This is the policy the data-science work is for.
+- **Mean-only** -- reduces each facility to a single number, its expected completion time, and picks the fastest. Ignores variance; ignores the deadline. This is what "send the tray to the fastest facility" looks like as code, and is the operator intuition we want to beat.
+- **Proximity** -- looks up the client in a static `client -> facility` table and picks whatever it returns. No model, no math, no awareness of the cell. Stands in for the very common real-world baseline "we always send hospital A's trays to facility BOCA."
+
+| Policy         | Reads deadline | Uses model variance | Uses model at all |
+| -------------- | -------------- | ------------------- | ----------------- |
+| variance-aware | yes            | yes                 | yes               |
+| mean-only      | no             | no                  | yes (mean only)   |
+| proximity      | no             | no                  | **no**            |
+
+### Why three, not one
+
+A single number from a single policy doesn't tell you whether the model is useful. The backtest harness runs all three policies against the same simulated pickups and reports the **lift** of variance-aware over each baseline with bootstrap CIs. That gives a defensible statement of the form "the model adds $X$ percentage points of on-time rate over the operational baseline (proximity) and $Y$ over the heuristic baseline (mean-only)" -- with a confidence interval on each number.
+
+The rest of this page is how variance-aware actually works: the decision problem stated formally, the hierarchical Bayesian model behind the predictions, the posterior-predictive scoring that turns those predictions into $\Pr(\text{on-time})$, the backtest harness, and the lift it produces on synth-events data.
+
 ## The decision problem
 
 For a pickup with deadline $t_d$, a tray type $t$, and a peak-hour flag $p$, three facilities are candidates ($f \in \{\text{BOCA}, \text{LGB}, \text{ELM}\}$). We want the policy:

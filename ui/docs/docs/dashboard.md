@@ -7,7 +7,7 @@ title: Dashboard
 
 The interactive UI for the variance-aware routing model. Lives in `ui/dashboard/`, built with Vite + React 19 + TypeScript + Tailwind 4. Audience: data scientists exploring model behavior and engineers reviewing what the routing service is actually doing.
 
-It is **not** the operational dispatch console (that's M2+ work and will be a separate UI). It is **not** the docs site (that's this site). It's a tool for understanding the model and the policies, not for routing real trays.
+It is **not** the operational dispatch console (that's a separate UI, triggered by a real client routing real pickups -- see [Roadmap](./roadmap)). It is **not** the docs site (that's this site). It's a tool for understanding the model and the policies, not for routing real trays.
 
 ## How to access
 
@@ -103,7 +103,7 @@ What it **will** show:
 
 What it shows today: a card explaining the design.
 
-Why it's not wired yet: calibration only makes sense against real outcomes. With synth-events the model and the data generator agree by construction, so reliability is nearly perfect by definition -- there's nothing to display. This tab gates on the `projector` consumer landing in M2 and producing real `journey` rows we can score against.
+Why it's not wired yet: calibration only makes sense against real outcomes. With synth-events the model and the data generator agree by construction, so reliability is nearly perfect by definition -- there's nothing to display. This tab gates on the `projector` consumer landing and producing real `journey` rows we can score against.
 
 ### Model (placeholder)
 
@@ -134,9 +134,9 @@ Why it's not wired yet: the dashboard would need either a `GET /model/summary` e
 | Wanted                                                         | Blocker                                                                                                                      |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | See backtest lift charts in the UI                             | Routing service doesn't expose `GET /backtest/summary`                                                                       |
-| See a reliability diagram                                      | No real outcome data yet -- gates on M2 projector + real journeys                                                            |
+| See a reliability diagram                                      | No real outcome data yet -- gates on the `projector` + real journey rows                                                     |
 | See posterior diagnostics (trace plots, R-hat)                 | Routing service doesn't expose `GET /model/summary`. Easy add when we decide the format                                      |
-| See historical decisions or audit a routed pickup              | We don't route real pickups yet. Gates on the routing service running in M2 against real ingest events                       |
+| See historical decisions or audit a routed pickup              | We don't route real pickups yet. Gates on the routing service running against real ingest events                             |
 | Compare alternative deadline distributions or transport models | No "what-if" framework in the routing API. Would need a new endpoint that re-runs the policy with overridden hyperparameters |
 | Save / share a specific cell as a URL                          | No URL-state encoding yet. Trivial to add (React Router search params)                                                       |
 | Drill into the posterior for one specific facility / cell      | Not exposed by the API; would surface in the Model tab                                                                       |

@@ -7,10 +7,10 @@ title: Local development
 
 This page covers two independent local flows:
 
-1. **Event spine** -- Redpanda + ingest service. Requires Docker. Demonstrates the M1 event capture path.
+1. **Event spine** -- Redpanda + ingest service. Requires Docker. Demonstrates the event capture path.
 2. **Routing model + dashboard** -- synth-events, the routing API, and the React dashboard. **No Docker required.** This is the DS demo: hierarchical Bayesian routing model fit on synthetic journeys, exposed via a FastAPI service, visualized in a Vite/React dashboard.
 
-The two flows don't interact yet (the routing model trains on synth-events parquet, not on real ingested events). They'll meet up when the `projector` consumer lands in M2.
+The two flows don't interact yet (the routing model trains on synth-events parquet, not on real ingested events). They'll meet up when the `projector` consumer lands -- see [Roadmap](roadmap).
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ This runs `docker compose up -d` and starts three containers:
 
 Boot sequence: Redpanda starts, its healthcheck (`rpk cluster health`) passes, the init container fires `rpk topic create events` and exits, then the console comes up. Total time: roughly 5--10 seconds on a warm machine.
 
-Postgres and MinIO are deliberately **not** part of the dev stack right now. They will be added back when the `projector` service (M2) and the Kafka Connect S3 sink land. See the [Roadmap](roadmap).
+Postgres and MinIO are deliberately **not** part of the dev stack right now. They will be added back when the `projector` service and the Kafka Connect S3 sink land. See the [Roadmap](roadmap).
 
 ## Verify it came up cleanly
 
@@ -91,7 +91,7 @@ Tradeoffs at other counts:
 
 You can **add** partitions to a topic (`rpk topic add-partitions events --num 4`) but you **cannot remove** them. Adding partitions also changes which partition a given `tray_id` hashes to, so in-flight events for the same tray can end up split across old and new partitions, temporarily breaking per-tray ordering until the old partition drains.
 
-Practical implication: pick partition count up front with headroom. 6 covers M1--M3 without a re-partitioning event. If we ever genuinely outgrow it, the migration is a documented one-time operation with a quiet window, not a casual config change.
+Practical implication: pick partition count up front with headroom. 6 covers our planned consumer roster (`projector`, routing, preference-card learner, S3 sink) without a re-partitioning event. If we ever genuinely outgrow it, the migration is a documented one-time operation with a quiet window, not a casual config change.
 
 ## Send an event end-to-end
 
@@ -160,7 +160,7 @@ uv run routing fit \
   --out /tmp/routing-model.npz \
   --draws 500 --tune 500 --chains 2 --seed 42
 # expected: "wrote posterior (1000 samples) to /tmp/routing-model.npz"
-# takes ~10 seconds on a warm machine
+# takes ~3 minutes on a warm machine
 ```
 
 The NUTS sampler in PyMC produces a flattened posterior over the hierarchical model's parameters (per-facility mean offsets and sigmas, tray-type effects, peak-hour shift, transport time). See [routing](./services/routing) for the model math.

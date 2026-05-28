@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function Calibration() {
   return (
@@ -13,18 +13,14 @@ export function Calibration() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Reliability diagram and drift tracking</CardTitle>
+          <CardTitle>Gates on real outcome data</CardTitle>
           <CardDescription>
-            Wired up after the first model fit. Drift alarms fire when the rolling window deviates
-            from the diagonal by more than 5 percentage points.
+            Calibration is uninformative against synth-events -- the data generator and the model
+            agree by construction, so reliability is near-perfect by definition. This tab wires up
+            once the <code>projector</code> consumer is producing real journey rows we can score the
+            model against.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Conformal-prediction wrapping is the recalibration path -- distribution-free,
-            plug-and-play.
-          </p>
-        </CardContent>
       </Card>
     </div>
   )

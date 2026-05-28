@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
 import type * as Preset from '@docusaurus/preset-classic'
 import type { Config } from '@docusaurus/types'
 import { themes as prismThemes } from 'prism-react-renderer'
@@ -5,6 +8,13 @@ import rehypeKatex from 'rehype-katex'
 import remarkMath from 'remark-math'
 
 const baseUrl = process.env.DOCS_BASE_URL ?? '/instrument-sterilization-logistics/'
+
+// Pull the version from the workspace root package.json so the navbar
+// badge always reflects the most-recently-released tag (semantic-release
+// updates package.json on each release commit).
+const rootPkgPath = path.resolve(__dirname, '../../package.json')
+const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf-8')) as { version?: string }
+const projectVersion = rootPkg.version ?? '0.0.0'
 
 const config: Config = {
   title: 'Instrument Sterilization Logistics',
@@ -83,6 +93,11 @@ const config: Config = {
         src: 'img/logo.svg'
       },
       items: [
+        {
+          type: 'html',
+          position: 'left',
+          value: `<span class="version-badge">v${projectVersion}</span>`
+        },
         {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',

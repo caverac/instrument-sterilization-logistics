@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function Backtest() {
   return (
@@ -13,16 +13,13 @@ export function Backtest() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Coming with the routing model (M2)</CardTitle>
+          <CardTitle>Needs a routing-service endpoint</CardTitle>
           <CardDescription>
-            Implementation lands once the hierarchical model is fit and the replay harness exists.
+            The backtest itself runs today via the CLI: <code>uv run routing backtest</code> prints
+            per-policy on-time rates, mean delay, p95 delay, and bootstrap-CI lifts. This tab wires
+            up once the routing service exposes <code>GET /backtest/summary</code>.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            See the Roadmap in the docs site for the full milestone breakdown.
-          </p>
-        </CardContent>
       </Card>
     </div>
   )
