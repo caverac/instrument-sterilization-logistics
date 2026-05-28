@@ -24,6 +24,7 @@ packages = ["src/synth_events"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=7.0.0",
+    "pyarrow-stubs>=20",
 ]
 
 [tool.pytest.ini_options]

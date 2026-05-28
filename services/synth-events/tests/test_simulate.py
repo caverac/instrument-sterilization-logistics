@@ -11,6 +11,8 @@ from synth_events.parameters import (
     STAGES,
     TRANSPORT_MEAN_MIN,
     TRAY_TYPES,
+    Facility,
+    TrayType,
 )
 from synth_events.simulate import (
     _lognormal_mu_for_mean,
@@ -20,11 +22,11 @@ from synth_events.simulate import (
 )
 
 
-def _by_id(facility_id: str):
+def _by_id(facility_id: str) -> Facility:
     return next(f for f in FACILITIES if f.facility_id == facility_id)
 
 
-def _tray(tray_type_id: str):
+def _tray(tray_type_id: str) -> TrayType:
     return next(t for t in TRAY_TYPES if t.tray_type_id == tray_type_id)
 
 
