@@ -1,6 +1,8 @@
 import type * as Preset from '@docusaurus/preset-classic'
 import type { Config } from '@docusaurus/types'
 import { themes as prismThemes } from 'prism-react-renderer'
+import rehypeKatex from 'rehype-katex'
+import remarkMath from 'remark-math'
 
 const baseUrl = process.env.DOCS_BASE_URL ?? '/instrument-sterilization-logistics/'
 
@@ -21,6 +23,15 @@ const config: Config = {
     defaultLocale: 'en',
     locales: ['en']
   },
+
+  stylesheets: [
+    {
+      href: 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
+      type: 'text/css',
+      integrity: 'sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+',
+      crossorigin: 'anonymous'
+    }
+  ],
 
   markdown: {
     mermaid: true,
@@ -52,7 +63,9 @@ const config: Config = {
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
           editUrl:
-            'https://github.com/caverac/instrument-sterilization-logistics/tree/main/ui/docs/'
+            'https://github.com/caverac/instrument-sterilization-logistics/tree/main/ui/docs/',
+          remarkPlugins: [remarkMath],
+          rehypePlugins: [rehypeKatex]
         },
         blog: false,
         theme: {

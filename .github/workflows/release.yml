@@ -10,9 +10,13 @@ concurrency:
 
 env:
   NODE_VERSION: '25'
-  PYTHON_VERSION: '3.14'
+  PYTHON_VERSION: '3.12'
 
 jobs:
+  # ===========================================================================
+  # Stage 1: Semantic release
+  # ===========================================================================
+
   root-release:
     name: Root Release
     runs-on: ubuntu-latest
@@ -41,3 +45,58 @@ jobs:
         run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================================================
+  # Stage 2: Build + publish the docs site to GitHub Pages
+  #
+  # Runs after the release job so the deployed site reflects the just-released
+  # version. `if: !cancelled()` lets us deploy even if root-release was a
+  # no-op (e.g. no release-worthy commits since the last tag).
+  #
+  # One-time setup required in the repo:
+  #   Settings -> Pages -> Source: "GitHub Actions"
+  # ===========================================================================
+
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    needs: [root-release]
+    if: ${{ !cancelled() && github.repository == 'caverac/instrument-sterilization-logistics' && !contains(github.event.head_commit.message, '[skip ci]') }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build docs
+        run: yarn workspace @isl/docs build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ui/docs/build/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

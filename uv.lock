@@ -1588,30 +1588,42 @@ version = "0.0.0"
 source = { editable = "services/routing" }
 dependencies = [
     { name = "click" },
+    { name = "fastapi" },
     { name = "numpy" },
     { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pymc" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx" },
     { name = "pyarrow-stubs" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "pytest-cov" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1" },
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "numpy", specifier = ">=1.26,<2.0" },
     { name = "pyarrow", specifier = ">=18.0" },
+    { name = "pydantic", specifier = ">=2.10" },
+    { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pymc", specifier = ">=5.10,<5.20" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx", specifier = ">=0.27" },
     { name = "pyarrow-stubs", specifier = ">=20" },
     { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
 ]
 
