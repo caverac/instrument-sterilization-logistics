@@ -45,14 +45,15 @@ The dashboard makes HTTP calls to the routing service via Vite's `/api` proxy (c
 
 ## Tabs
 
-The sidebar has four tabs, three of which are placeholder stubs today.
+The sidebar has five tabs; **Explorer** and **Operations** are live, the other three are placeholder stubs today.
 
-| Tab         | Status      | Backed by                                                  |
-| ----------- | ----------- | ---------------------------------------------------------- |
-| Explorer    | **Live**    | `POST /decide` on the routing service                      |
-| Backtest    | Placeholder | Will call a future `GET /backtest/summary` endpoint        |
-| Calibration | Placeholder | Will call a future `GET /calibration/reliability` endpoint |
-| Model       | Placeholder | Will read the posterior summary directly from `model.npz`  |
+| Tab         | Status      | Backed by                                                                                  |
+| ----------- | ----------- | ------------------------------------------------------------------------------------------ |
+| Explorer    | **Live**    | `POST /decide` on the routing service                                                      |
+| Operations  | **Live**    | `GET /operations/tray-states` and `GET /operations/recent-journeys` on the routing service |
+| Backtest    | Placeholder | Will call a future `GET /backtest/summary` endpoint                                        |
+| Calibration | Placeholder | Will call a future `GET /calibration/reliability` endpoint                                 |
+| Model       | Placeholder | Will read the posterior summary directly from `model.npz`                                  |
 
 ### Explorer (live)
 
@@ -80,6 +81,19 @@ The interactive cell view. Lets you set the pickup parameters and watch all thre
 - Slide the hour into 08-11 or 14-17. All facilities' expected completions tick up by the peak shift.
 - Switch tray type to Spine (1.6x complexity multiplier). All three facilities slow down proportionally; the choice between them often doesn't change.
 - Switch the client. Only the proximity policy's pick changes -- the other two are client-independent.
+
+### Operations (live)
+
+The "what's actually happening" view, sourced entirely from the projector's Postgres tables. The page polls both endpoints every 5 seconds.
+
+**Two sections, both rendered as plain tables:**
+
+- **Trays, most recently updated** -- the 50 most-recently-touched rows from the `tray` projection. Columns: tray id, current stage, current facility (colour-coded badge), last event timestamp. As events flow through `ingest -> projector`, rows update on the next poll.
+- **Recent finalized journeys** -- the 50 most-recently-delivered rows from the `journey` projection. Columns: tray id, client, facility, tray type, total time (sum of dwells + transport), delay vs. deadline, on-time/late badge.
+
+**When the projector store is empty**, the page shows hint text suggesting `uv run synth-events publish --n 200` to backfill. See [Local development -- Full-stack demo](./local-development#full-stack-demo) for the end-to-end walkthrough.
+
+**When the routing service can't reach Postgres**, the page surfaces the 503 as a "Projector store unreachable" card.
 
 ### Backtest (placeholder)
 
@@ -127,6 +141,8 @@ Why it's not wired yet: the dashboard would need either a `GET /model/summary` e
 | Watch the variance-aware advantage materialize as you tighten the deadline              | Explorer (deadline slider)                    |
 | Confirm the peak-hour effect is captured by the model                                   | Explorer (hour slider into 08-12 or 14-18)    |
 | Verify policy-independence of tray type and client (only proximity reads the client)    | Explorer (switch the dropdowns)               |
+| See what the projector has captured (current tray states, recent finalized journeys)    | Operations                                    |
+| Watch a live event propagate from POST -> Kafka -> Postgres -> UI                       | Operations (with the live-tracking script)    |
 | See the bootstrap-CI lift numbers                                                       | `uv run routing backtest` CLI, not the UI yet |
 
 ## What you CAN'T do yet
@@ -136,7 +152,7 @@ Why it's not wired yet: the dashboard would need either a `GET /model/summary` e
 | See backtest lift charts in the UI                             | Routing service doesn't expose `GET /backtest/summary`                                                                       |
 | See a reliability diagram                                      | No real outcome data yet -- gates on the `projector` + real journey rows                                                     |
 | See posterior diagnostics (trace plots, R-hat)                 | Routing service doesn't expose `GET /model/summary`. Easy add when we decide the format                                      |
-| See historical decisions or audit a routed pickup              | We don't route real pickups yet. Gates on the routing service running against real ingest events                             |
+| See historical _routing decisions_ or audit a routed pickup    | We don't route real pickups yet. Gates on a future dispatch loop writing routing decisions back to the log                   |
 | Compare alternative deadline distributions or transport models | No "what-if" framework in the routing API. Would need a new endpoint that re-runs the policy with overridden hyperparameters |
 | Save / share a specific cell as a URL                          | No URL-state encoding yet. Trivial to add (React Router search params)                                                       |
 | Drill into the posterior for one specific facility / cell      | Not exposed by the API; would surface in the Model tab                                                                       |
@@ -151,10 +167,10 @@ Why it's not wired yet: the dashboard would need either a `GET /model/summary` e
 
 ## Roadmap
 
-See [Roadmap](./roadmap) for the planned milestones. Concrete next steps for this UI, in rough order:
+See [Roadmap](./roadmap) for what's built and what's next. Concrete next steps for this UI, in rough order:
 
 1. Wire Backtest tab -- needs `GET /backtest/summary` on the routing service.
 2. Wire Model tab -- needs `GET /model/summary` on the routing service.
 3. URL-state encoding so a cell can be linked.
 4. Plot per-facility completion-time distributions (recharts) overlaid on the Explorer cards, so you can _see_ the variance differences instead of inferring from the P(on-time) number.
-5. Wire Calibration tab -- gated on real outcome data from the projector.
+5. Wire Calibration tab -- the data is there now (projector emits `journey` rows with `on_time` and `delay_min`); needs a routing-service endpoint that scores each row against the posterior and bins predicted P(on-time) vs realised on-time rate.

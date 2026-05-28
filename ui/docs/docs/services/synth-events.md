@@ -62,26 +62,36 @@ The variance ranking holds (59.6 > 53.8 > 51.4), and the on-time-rate ranking ma
 
 ```mermaid
 flowchart LR
-    SE[synth-events CLI] -->|journeys.parquet| NB[modeling notebooks]
+    SE[synth-events generate] -->|journeys.parquet| NB[modeling notebooks]
     SE -->|journeys.parquet| RM[routing model fit]
     RM --> BT[backtest harness]
     RM --> APP[routing service / UI]
 
+    SP[synth-events publish] -->|POST /events| IN[ingest service]
+    IN --> K(((Kafka topic 'events')))
+    K -->|consumer group 'projector'| PJ[projector -> Postgres]
+    PJ -->|tray, journey rows| UI[dashboard Operations tab]
+
     classDef devtool fill:#0d6e6e,stroke:#053838,color:#fff
-    classDef artifact fill:#2cc4c4,stroke:#0d6e6e,color:#053838
-    class SE devtool
-    class RM,APP devtool
+    classDef bus fill:#0d6e6e,stroke:#053838,color:#fff
+    class SE,SP,RM,APP devtool
+    class K bus
 ```
 
-Not part of the live Kafka pipeline. When real journey data starts flowing (after the `projector` service lands per the [Roadmap](../roadmap)), the modeling pipelines switch their input from `journeys.parquet` to the projector's Postgres tables, and synth-events stays around for backtests against held-out distributions.
+The two synth-events surfaces serve different audiences:
+
+- **`generate`** writes parquet for offline modeling. Not part of the live pipeline; the routing model fits on it today and will switch to the projector's Postgres tables once real client data accumulates.
+- **`publish`** POSTs events through ingest so the projector, dashboard, and any future consumer have realistic data to work against without waiting for real-client onboarding. Pure dev tooling -- never run in production.
 
 ## CLI
+
+### `synth-events generate`
+
+Writes synthetic journeys to a parquet file. Reproducible from the seed -- identical seed + flags produce identical bytes, which matters for backtests with a fixed evaluation set.
 
 ```bash
 uv run synth-events generate --n 10000 --out journeys.parquet --seed 42 --days 30
 ```
-
-Flags:
 
 | Flag     | Default            | Notes                                                            |
 | -------- | ------------------ | ---------------------------------------------------------------- |
@@ -90,7 +100,33 @@ Flags:
 | `--seed` | `42`               | RNG seed -- same seed produces byte-identical parquet output     |
 | `--days` | `30`               | Time span (days) ending at `2026-01-01` to spread pickups across |
 
-The output is fully reproducible from the seed: identical seed + flags produce identical bytes. This matters for backtests where you want a fixed evaluation set.
+### `synth-events publish`
+
+Generates N journeys and POSTs every event (10 per journey, in order) through the ingest service. Useful for backfilling the projector + dashboard with realistic data before any real client onboards.
+
+```bash
+uv run synth-events publish --n 200 --hours 24 --seed 1
+# expected: "posted 2000 events from 200 journeys to http://localhost:8000"
+```
+
+| Flag           | Default                 | Notes                                                  |
+| -------------- | ----------------------- | ------------------------------------------------------ |
+| `--n`          | `200`                   | Number of journeys to publish                          |
+| `--ingest-url` | `http://localhost:8000` | Ingest service base URL                                |
+| `--seed`       | `42`                    | RNG seed for reproducibility                           |
+| `--hours`      | `24`                    | Spread pickup times across the last N hours ending now |
+
+#### Event timeline
+
+Each journey is mapped to 10 events. Timestamps are chosen so the **projector's computed per-stage dwells equal the Journey's dwell fields exactly**, and the projector's `journey.delivered_ts` equals the original `Journey.delivered_ts`:
+
+- `PICKED_UP`, `CHECKED_IN`, `DECON_START` collapse onto `pickup_ts` (no transit/queue modelled).
+- `DECON_END = pickup_ts + decon_dwell_min`.
+- Each subsequent stage end is the previous stage end plus that stage's dwell.
+- `PACKED`, `LOADED` collapse onto `pickup_ts + sum(dwells)` (no separate loading dwell).
+- `DELIVERED = LOADED + transport_min`.
+
+`POST /events` is called sequentially per journey to preserve per-tray ordering. Failures are loud -- the CLI aborts with a `ClickException` rather than silently dropping data.
 
 ## Library use
 
