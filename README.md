@@ -2,9 +2,15 @@
 
 Cross-facility coordination layer for offsite surgical-instrument reprocessing networks. Routes pickups to the facility most likely to hit each OR-case deadline, produces contractually defensible SLA reports across facilities, and learns real tray composition from observed reprocessing data to correct stale preference cards.
 
+## Documentation
+
+**[caverac.github.io/instrument-sterilization-logistics](https://caverac.github.io/instrument-sterilization-logistics/)** -- architecture, services (ingest, synth-events, routing), the dashboard, local-development walkthroughs, the variance-aware routing model math, glossary, and roadmap.
+
+The rest of this file is the bare minimum to get set up. The site has everything else.
+
 ## Requirements
 
-- [mise](https://mise.jdx.dev/) -- manages Node 25, Python 3.14, uv
+- [mise](https://mise.jdx.dev/) -- manages Node 25, Python 3.12, uv
 - [Yarn 4](https://yarnpkg.com/) -- bundled via Corepack
 
 ## Setup

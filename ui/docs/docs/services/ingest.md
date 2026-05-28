@@ -7,7 +7,7 @@ title: Ingest service
 
 The **front door** for events from the outside world. Facility <abbr title="Sterile Processing Department">SPD</abbr> systems (CensiTrac, SPM, ...), hospital <abbr title="Electronic Health Records">EHRs</abbr>, and transport vendors all eventually call one endpoint on this service: `POST /events`. The service validates, derives a stable identifier, and publishes to a Kafka topic. That's it.
 
-Per the design doc, this is the M1 event spine. Everything else in the system -- projections, routing, SLA reporting, the long-term audit archive -- is a consumer of the topic this service writes to.
+This is the event spine. The architecture is designed for everything downstream -- projections, SLA reporting, the long-term audit archive -- to be a consumer of the topic this service writes to. None of those consumers exist yet; today the topic is written by ingest and read only by the Redpanda Console and the integration tests. See the [Roadmap](../roadmap) for the consumer build order.
 
 ## What it does
 
@@ -21,27 +21,30 @@ That's the whole service. No database, no S3 in the write path -- those are down
 
 ## Architecture
 
+Solid arrows are built and running. Dashed arrows are planned consumers that the architecture is designed around but that don't exist yet.
+
 ```mermaid
 flowchart LR
     A[Facility adapter] -->|POST /events| I[ingest service]
     I -->|publish, key=tray_id| K(((Kafka topic 'events')))
-    K -->|consumer group| P[projector -> Postgres]
-    K -->|consumer group| R[routing service]
-    K -->|consumer group| L[preference-card learner]
-    K -->|Kafka Connect S3 sink| S3[(S3 archive)]
+    K -.->|planned consumer| P[projector -> Postgres]
+    K -.->|planned consumer| L[preference-card learner]
+    K -.->|planned Kafka Connect S3 sink| S3[(S3 archive)]
 
     classDef bus fill:#0d6e6e,stroke:#053838,color:#fff
-    classDef store fill:#2cc4c4,stroke:#0d6e6e,color:#053838
+    classDef planned fill:#f3f4f6,stroke:#9ca3af,color:#6b7280,stroke-dasharray:5 5
     class K bus
-    class S3 store
+    class P,L,S3 planned
 ```
 
-Properties this architecture gets for free:
+The routing service is built but is **not** in this diagram on purpose: it does not consume from Kafka. It trains on parquet from synth-events and serves HTTP. See [routing](./routing).
 
-- **Replay from any offset** -- new consumers backfill by reading from offset zero, no historical scan against a database.
+Properties this architecture gets for free once the consumers land:
+
+- **Replay from any offset** -- new consumers backfill by reading from offset zero, no historical scan against a database. (Available today; no consumer is exercising it yet.)
 - **Native consumer groups** -- multiple replicas of the same consumer split partitions automatically. No hand-rolled `claimed_by` columns.
-- **Schema enforcement at the wire** -- Schema Registry rejects publishes whose schema breaks forward/backward compatibility. Producers and consumers stay aligned without manual coordination.
-- **Long-term archive is a connector, not application code** -- Kafka Connect S3 sink writes day-partitioned objects to S3 with no involvement from the ingest service.
+- **Schema enforcement at the wire** -- Schema Registry rejects publishes whose schema breaks forward/backward compatibility. Producers and consumers stay aligned without manual coordination. (Active today; the ingest service registers `events-value` on first publish.)
+- **Long-term archive will be a connector, not application code** -- when the planned Kafka Connect S3 sink lands, it writes day-partitioned objects to S3 with no involvement from the ingest service.
 
 ## API
 
@@ -73,7 +76,7 @@ Submit one event. Returns `202 Accepted` on successful publish.
 }
 ```
 
-Notice there is no `inserted` field. The ingest service does not know whether this is a first publish or a retry -- and it doesn't matter, because the deterministic `event_id` means downstream consumers naturally dedup on it. If the vendor retries the same `source_event_id`, the response will return the same `event_id`; the message lands on Kafka twice; the projector's `INSERT ... ON CONFLICT (event_id) DO NOTHING` (or equivalent) handles the duplicate.
+Notice there is no `inserted` field. The ingest service does not know whether this is a first publish or a retry -- and it doesn't matter, because the deterministic `event_id` means downstream consumers can naturally dedup on it. If the vendor retries the same `source_event_id`, the response returns the same `event_id`; the message lands on Kafka twice; the future projector consumer will dedup with `INSERT ... ON CONFLICT (event_id) DO NOTHING` (or equivalent).
 
 **Validation failure:** standard FastAPI `422` with field-level detail.
 
@@ -175,4 +178,4 @@ make dev-up
 uv run pytest services/ingest -m slow
 ```
 
-See the project [Roadmap](../roadmap) for M1--M3 build order, the full out-of-scope table, and the triggers that move ingest itself toward Avro encoding, managed Kafka, OAuth2, and horizontal scaling.
+See the project [Roadmap](../roadmap) for what's built, what's next, the full out-of-scope table, and the triggers that move ingest itself toward Avro encoding, managed Kafka, OAuth2, and horizontal scaling.

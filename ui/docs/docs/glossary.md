@@ -57,8 +57,6 @@ Acronyms and domain-specific terms used throughout the documentation. The same t
 
 **KMS** -- _Key Management Service._ AWS service for managing cryptographic keys.
 
-**M1, M2, M3, M4+** -- Project _milestones_, defined in the design doc build order. Briefly: M1 is the event spine + single client; M2 adds the second facility + routing; M3 adds HL7 ingest + preference-card learning; M4+ is everything contingent on those landing.
-
 **MinIO** -- Open-source S3-compatible object store. Used in local dev as a drop-in for AWS S3 when the S3 sink connector and projector land.
 
 **MQTT** -- _Message Queuing Telemetry Transport._ Lightweight pub/sub protocol common for IoT/edge devices (e.g. handheld scanners).
