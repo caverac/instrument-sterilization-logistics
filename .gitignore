@@ -13,6 +13,12 @@ coverage/
 dist/
 build/
 *.tsbuildinfo
+# tsc -b emits these next to vite.config.ts when running with composite project
+# references; they're build artifacts, not source.
+**/vite.config.js
+**/vite.config.d.ts
+**/vite.config.js.map
+**/vite.config.d.ts.map
 
 # === Python ===
 __pycache__/
