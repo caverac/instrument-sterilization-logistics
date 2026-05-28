@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.5.0...v1.6.0) (2026-05-28)
+
+
+### Features
+
+* **services:** added projector service ([41ee425](https://github.com/caverac/instrument-sterilization-logistics/commit/41ee425f301c94dfe746e5a471dae1c80d29ca40))
+
 # [1.5.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.4.0...v1.5.0) (2026-05-28)
 
 
