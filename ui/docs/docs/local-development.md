@@ -5,13 +5,18 @@ title: Local development
 
 # Local development
 
-How to bring up the full stack on your laptop, send an event through it, and tear it down.
+This page covers two independent local flows:
+
+1. **Event spine** -- Redpanda + ingest service. Requires Docker. Demonstrates the M1 event capture path.
+2. **Routing model + dashboard** -- synth-events, the routing API, and the React dashboard. **No Docker required.** This is the DS demo: hierarchical Bayesian routing model fit on synthetic journeys, exposed via a FastAPI service, visualized in a Vite/React dashboard.
+
+The two flows don't interact yet (the routing model trains on synth-events parquet, not on real ingested events). They'll meet up when the `projector` consumer lands in M2.
 
 ## Prerequisites
 
 - [mise](https://mise.jdx.dev/) (manages Node 25, Python 3.12, uv)
 - [Yarn 4](https://yarnpkg.com/) (bundled via Corepack)
-- Docker, with `docker compose`
+- Docker with `docker compose` -- only for the event-spine flow; skip if you're just running the routing model demo
 
 One-time setup from a fresh clone:
 
@@ -23,7 +28,9 @@ uv sync --all-groups
 pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
 
-## Bring up the dev stack
+## Event spine: bring up the dev stack
+
+> Skip this section if you only want the routing model + dashboard demo. The dev stack is just Kafka/Redpanda and is only used by the ingest service.
 
 ```bash
 make dev-up
@@ -132,6 +139,87 @@ uv run pytest services/ingest -m slow -v
 # expected: 3 passed
 ```
 
+## Routing model + dashboard demo
+
+The DS demo: generate synthetic journey data, fit the hierarchical Bayesian routing model, serve it from FastAPI, and view it in the React dashboard. **No Docker, no Kafka** -- this whole flow is local processes.
+
+### Step 1. Generate synthetic journeys
+
+```bash
+uv run synth-events generate --n 5000 --out /tmp/journeys.parquet --seed 42 --days 30
+# expected: "wrote 5000 journeys to /tmp/journeys.parquet"
+```
+
+See [synth-events](./services/synth-events) for the distribution design -- BOCA is fast and unpredictable, LGB is balanced, ELM is slow and steady.
+
+### Step 2. Fit the routing model
+
+```bash
+uv run routing fit \
+  --in /tmp/journeys.parquet \
+  --out /tmp/routing-model.npz \
+  --draws 500 --tune 500 --chains 2 --seed 42
+# expected: "wrote posterior (1000 samples) to /tmp/routing-model.npz"
+# takes ~10 seconds on a warm machine
+```
+
+The NUTS sampler in PyMC produces a flattened posterior over the hierarchical model's parameters (per-facility mean offsets and sigmas, tray-type effects, peak-hour shift, transport time). See [routing](./services/routing) for the model math.
+
+### Step 3. Start the routing API
+
+In a second terminal:
+
+```bash
+ROUTING_MODEL_PATH=/tmp/routing-model.npz \
+  uv run uvicorn routing.app:create_app --factory --reload --port 8091
+```
+
+Verify it's up:
+
+```bash
+curl http://localhost:8091/healthz
+# expected: {"status":"ok"}
+
+curl -X POST http://localhost:8091/decide \
+  -H 'content-type: application/json' \
+  -d '{
+    "tray_type_id": "TRAY-KNEE",
+    "hour_of_pickup": 10,
+    "deadline_min": 220.0,
+    "client_id": "HOSPITAL_A"
+  }' | python3 -m json.tool
+# expected: per-facility cells (expected_completion_min, p_on_time) and three policy choices
+```
+
+### Step 4. Start the dashboard
+
+In a third terminal:
+
+```bash
+yarn workspace @isl/dashboard dev
+# expected: server at http://localhost:3091
+```
+
+Open http://localhost:3091. The Explorer tab is wired to the routing API via Vite's `/api` proxy (configured in `ui/dashboard/vite.config.ts` to forward to `:8091`).
+
+### What to look at
+
+In the Explorer tab:
+
+- **Move the deadline slider** down from 220 toward 150. Watch the variance-aware policy's P(on-time) numbers fall faster for BOCA (high variance) than for LGB / ELM. At tight deadlines variance-aware may pick a different facility than mean-only.
+- **Move the hour slider** into 08-11 or 14-17. The peak-hour effect adds time across all facilities; you'll see the expected-completion numbers tick up.
+- **Switch tray types**. Spine instrumentation has the highest complexity multiplier; small instrument trays are fastest.
+- **Switch clients**. Only the proximity policy's choice changes (it consults a hardcoded client-to-facility map).
+
+### Optional: just see the lift numbers without the UI
+
+If you want the headline DS result without spinning up the API + dashboard, the CLI prints it directly:
+
+```bash
+uv run routing backtest --model /tmp/routing-model.npz --n 3000 --seed 100
+# prints a per-policy table + bootstrap-CI lifts
+```
+
 ## Browse it visually
 
 - **Redpanda Console** -- http://localhost:8080. Topics, messages with full payloads, partitions, consumer groups, registered schemas. Click `events` to see your published messages.
@@ -166,4 +254,11 @@ Common situations:
 
 - **Port 19092 / 18081 / 8080 already in use** -- another local stack is bound to one of them. `docker ps -a` to find the offender, or change the host-side port in `docker-compose.yml`.
 - **`redpanda-init` exited non-zero** -- topic creation failed. `docker compose logs redpanda-init` shows the error; usually a transient race with broker startup. `make dev-reset && make dev-up` reliably fixes it.
-- **`uv run uvicorn ...` fails with a Kafka connection error** -- the broker isn't up yet, or you forgot `make dev-up`. Re-run after `docker compose ps` shows `redpanda` healthy.
+- **`uv run uvicorn ingest...` fails with a Kafka connection error** -- the broker isn't up yet, or you forgot `make dev-up`. Re-run after `docker compose ps` shows `redpanda` healthy.
+
+For the routing model + dashboard flow:
+
+- **`uvicorn routing.app:...` fails with `FileNotFoundError: model.npz`** -- skipped Step 2, or `ROUTING_MODEL_PATH` is pointing somewhere stale. Re-run `routing fit` and pass the resulting path.
+- **Dashboard shows "Routing API unreachable"** -- the routing process isn't running on `:8091`, or the Vite proxy in `ui/dashboard/vite.config.ts` is pointing somewhere else. Start the API and reload the page.
+- **`pymc` import fails** -- usually a stale venv. `rm -rf .venv && uv sync` rebuilds against the pinned PyMC 5.19 / PyTensor 2.26 we need on macOS x86_64.
+- **Port 3091 / 8091 already in use** -- another dashboard or another local API is bound. `lsof -i :3091` (or `:8091`) finds the offender.

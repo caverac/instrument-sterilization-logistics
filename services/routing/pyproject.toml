@@ -6,8 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "click>=8.1",
+    "fastapi>=0.115",
     "numpy>=1.26,<2.0",
     "pyarrow>=18.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "uvicorn[standard]>=0.32",
     # PyMC for the hierarchical Bayesian fit. Pinned to <5.20 to keep
     # pytensor in the 2.x line; pytensor 3.x makes numba a hard dep,
     # and llvmlite has no macOS x86_64 wheels. pymc 5.19.x with
@@ -27,12 +31,15 @@ packages = ["src/routing"]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.27",
     "pyarrow-stubs>=20",
     "pytest>=8.0",
+    "pytest-asyncio>=0.24",
     "pytest-cov>=7.0.0",
 ]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=routing --cov-report=term-missing"
 
