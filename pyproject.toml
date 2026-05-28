@@ -8,14 +8,16 @@ requires-python = ">=3.14"
 package = false
 
 [tool.uv.workspace]
-members = ["services/ingest"]
+members = ["services/ingest", "services/synth-events"]
 
 [tool.uv.sources]
 ingest = { workspace = true }
+synth-events = { workspace = true }
 
 [dependency-groups]
 dev = [
     "ingest",
+    "synth-events",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.0.0",
@@ -43,7 +45,7 @@ target-version = ["py314"]
 [tool.isort]
 profile = "black"
 line_length = 120
-known_first_party = ["ingest"]
+known_first_party = ["ingest", "synth_events"]
 
 [tool.pylint.main]
 ignore-patterns = ['.*\.pyi$']
@@ -80,7 +82,7 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 explicit_package_bases = true
-mypy_path = ["services/ingest/src"]
+mypy_path = ["services/ingest/src", "services/synth-events/src"]
 
 [[tool.mypy.overrides]]
 module = ["confluent_kafka", "confluent_kafka.*"]

@@ -24,12 +24,22 @@ repos:
         types: [python]
         files: ^(services|adapters)/
 
-      - id: pylint
-        name: pylint
+      # Pylint runs per-package so tests/__init__.py from different
+      # packages don't collide on the `tests.conftest` module name.
+      # Add one hook per Python package as packages are added.
+      - id: pylint-ingest
+        name: pylint (ingest)
         entry: uv run pylint
         language: system
         types: [python]
-        files: ^(services|adapters)/
+        files: ^services/ingest/
+
+      - id: pylint-synth-events
+        name: pylint (synth-events)
+        entry: uv run pylint
+        language: system
+        types: [python]
+        files: ^services/synth-events/
 
       - id: pydocstyle
         name: pydocstyle
