@@ -1,12 +1,12 @@
 # Local development stack.
 #
-# Brings up the dependencies the ingest service needs:
+# Brings up:
 #   - Redpanda          (Kafka API + built-in Schema Registry, single binary, no Zookeeper)
 #   - Redpanda Console  (web UI for browsing topics, schemas, consumer groups)
 #   - redpanda-init     (one-shot sidecar that creates the `events` topic on first boot)
+#   - postgres          (projection store for the projector service)
 #
-# Postgres + MinIO will be added back when the `projector` service and the
-# Kafka Connect S3 sink land -- they're not part of the ingest write path.
+# MinIO will be added when the Kafka Connect S3 sink lands.
 
 services:
   redpanda:
@@ -80,5 +80,22 @@ services:
         echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml
         /app/console
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: projector
+      POSTGRES_PASSWORD: projector
+      POSTGRES_DB: projector
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U projector -d projector']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
 volumes:
   redpanda-data:
+  postgres-data:

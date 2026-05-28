@@ -55,3 +55,40 @@ export const CLIENT_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'ASC_X', label: 'ASC X' },
   { id: 'ASC_Y', label: 'ASC Y' }
 ]
+
+/** A row from the projector's `tray` table (current state of one tray). */
+export interface TrayState {
+  tray_id: string
+  current_facility_id: string
+  current_stage: string
+  last_event_ts: string
+  last_updated: string
+}
+
+export interface TrayStatesResponse {
+  trays: TrayState[]
+}
+
+/** A row from the projector's `journey` table (one finalized pickup cycle). */
+export interface Journey {
+  journey_id: string
+  tray_id: string
+  facility_id: string
+  tray_type_id: string
+  client_id: string
+  pickup_ts: string
+  required_by_ts: string
+  delivered_ts: string
+  on_time: boolean
+  delay_min: number
+  decon_dwell_min: number
+  inspection_dwell_min: number
+  assembly_dwell_min: number
+  sterilization_dwell_min: number
+  packout_dwell_min: number
+  transport_min: number
+}
+
+export interface RecentJourneysResponse {
+  journeys: Journey[]
+}

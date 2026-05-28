@@ -15,6 +15,8 @@ What works end-to-end right now:
 - **`services/ingest`** -- FastAPI service: `POST /events` validates with Pydantic (`extra="forbid"`), derives a deterministic UUIDv5 `event_id` from `(source_system, source_event_id)`, publishes to Kafka in Confluent JSON-Schema wire format. Schema registers under `events-value` on first publish. 100% test coverage, integration tests against the real broker.
 - **`services/synth-events`** -- CLI + library that generates synthetic `journey` parquet rows shaped like the future `projector` output. Three facilities with deliberately different `(mean, variance)` profiles so variance-aware routing has something to find. Fully reproducible from a seed.
 - **`services/routing`** -- the hierarchical Bayesian model (PyMC NUTS, partial pooling across facilities and tray types) + three policies (`variance-aware`, `mean-only`, `proximity`) + a backtest harness with paired-bootstrap lift CIs + a FastAPI service exposing `POST /decide`. CLI `routing fit` and `routing backtest` work standalone.
+- **`services/projector`** -- Kafka consumer subscribed to `events`. Maintains `tray` (current state), `journey_open` (intermediate per-cycle state), and `journey` (finalized rows mirroring synth-events parquet). Postgres schema initialised idempotently at startup; commits Kafka offsets only after Postgres writes succeed. See [Projector](services/projector).
+- **Postgres** -- back in `docker-compose.yml` as the projector's projection store.
 - **`ui/dashboard`** -- Vite + React 19 + Tailwind 4. **Explorer tab is live** against the routing API; Backtest, Calibration, and Model tabs are placeholders pending endpoints (see [Dashboard](dashboard)).
 - **`ui/docs`** -- this Docusaurus site, deployed to GitHub Pages via the release workflow.
 
@@ -22,10 +24,9 @@ What works end-to-end right now:
 
 The immediate priorities, in rough order. None of these are blocked by external triggers -- they are the things that turn the existing pieces into a continuously-running pipeline.
 
-1. **`projector` Kafka consumer.** Reads `events`, writes `tray` (current state) and `journey` (complete pickup-to-return cycle) projections into Postgres. The bridge between the event spine and the modeling pipeline -- once it lands, the routing model trains on real ingested events rather than synth-events parquet.
-2. **Kafka Connect S3 sink.** Day-partitioned object writes of the raw event log to S3 (MinIO in dev). Long-term immutable archive; backfill source for new consumers.
-3. **Routing service endpoints to unblock dashboard tabs.** `GET /backtest/summary` (Backtest tab), `GET /model/summary` (Model tab). Small backend lift; large UX win.
-4. **Postgres + MinIO back in `docker-compose.yml`.** They were removed when ingest didn't need them; they come back when the projector and the S3 sink land.
+1. **Kafka Connect S3 sink + MinIO in `docker-compose.yml`.** Day-partitioned object writes of the raw event log. Long-term immutable archive; backfill source for new consumers.
+2. **Routing service endpoints to unblock dashboard tabs.** `GET /backtest/summary` (Backtest tab), `GET /model/summary` (Model tab). Small backend lift; large UX win.
+3. **Switch the routing fit pipeline's input from synth-events parquet to projector Postgres.** The bridge is in place; the model just needs to learn to load from SQL.
 
 ## Not building yet, with triggers
 

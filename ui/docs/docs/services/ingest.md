@@ -7,7 +7,7 @@ title: Ingest service
 
 The **front door** for events from the outside world. Facility <abbr title="Sterile Processing Department">SPD</abbr> systems (CensiTrac, SPM, ...), hospital <abbr title="Electronic Health Records">EHRs</abbr>, and transport vendors all eventually call one endpoint on this service: `POST /events`. The service validates, derives a stable identifier, and publishes to a Kafka topic. That's it.
 
-This is the event spine. The architecture is designed for everything downstream -- projections, SLA reporting, the long-term audit archive -- to be a consumer of the topic this service writes to. None of those consumers exist yet; today the topic is written by ingest and read only by the Redpanda Console and the integration tests. See the [Roadmap](../roadmap) for the consumer build order.
+This is the event spine. The architecture is designed for everything downstream -- projections, SLA reporting, the long-term audit archive -- to be a consumer of the topic this service writes to. The [`projector`](./projector) consumer is the first such reader and is live today; the others (preference-card learner, Kafka Connect S3 sink) are not yet built. See the [Roadmap](../roadmap) for the consumer build order.
 
 ## What it does
 
@@ -27,14 +27,14 @@ Solid arrows are built and running. Dashed arrows are planned consumers that the
 flowchart LR
     A[Facility adapter] -->|POST /events| I[ingest service]
     I -->|publish, key=tray_id| K(((Kafka topic 'events')))
-    K -.->|planned consumer| P[projector -> Postgres]
+    K -->|consumer group 'projector'| P[projector -> Postgres]
     K -.->|planned consumer| L[preference-card learner]
     K -.->|planned Kafka Connect S3 sink| S3[(S3 archive)]
 
     classDef bus fill:#0d6e6e,stroke:#053838,color:#fff
     classDef planned fill:#f3f4f6,stroke:#9ca3af,color:#6b7280,stroke-dasharray:5 5
     class K bus
-    class P,L,S3 planned
+    class L,S3 planned
 ```
 
 The routing service is built but is **not** in this diagram on purpose: it does not consume from Kafka. It trains on parquet from synth-events and serves HTTP. See [routing](./routing).
@@ -76,7 +76,7 @@ Submit one event. Returns `202 Accepted` on successful publish.
 }
 ```
 
-Notice there is no `inserted` field. The ingest service does not know whether this is a first publish or a retry -- and it doesn't matter, because the deterministic `event_id` means downstream consumers can naturally dedup on it. If the vendor retries the same `source_event_id`, the response returns the same `event_id`; the message lands on Kafka twice; the future projector consumer will dedup with `INSERT ... ON CONFLICT (event_id) DO NOTHING` (or equivalent).
+Notice there is no `inserted` field. The ingest service does not know whether this is a first publish or a retry -- and it doesn't matter, because the deterministic `event_id` means downstream consumers can naturally dedup on it. If the vendor retries the same `source_event_id`, the response returns the same `event_id`; the message lands on Kafka twice; the projector dedups by upserting on `tray_id`-keyed projections and using `ON CONFLICT (journey_id) DO NOTHING` for finalized journey rows.
 
 **Validation failure:** standard FastAPI `422` with field-level detail.
 
