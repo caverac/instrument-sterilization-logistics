@@ -9,7 +9,7 @@ How to bring up the full stack on your laptop, send an event through it, and tea
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev/) (manages Node 25, Python 3.14, uv)
+- [mise](https://mise.jdx.dev/) (manages Node 25, Python 3.12, uv)
 - [Yarn 4](https://yarnpkg.com/) (bundled via Corepack)
 - Docker, with `docker compose`
 

@@ -41,6 +41,13 @@ repos:
         types: [python]
         files: ^services/synth-events/
 
+      - id: pylint-routing
+        name: pylint (routing)
+        entry: uv run pylint
+        language: system
+        types: [python]
+        files: ^services/routing/
+
       - id: pydocstyle
         name: pydocstyle
         entry: uv run pydocstyle
@@ -59,6 +66,8 @@ repos:
           services/ingest/tests/
           services/synth-events/src/
           services/synth-events/tests/
+          services/routing/src/
+          services/routing/tests/
         language: system
         types: [python]
         pass_filenames: false
