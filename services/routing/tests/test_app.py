@@ -15,11 +15,15 @@ from routing.app import (
     FACILITY_METADATA,
     _is_peak,
     create_app,
+    get_backtest,
+    get_model_summary,
     get_posterior,
     get_rng,
 )
 from routing.config import Settings
 from routing.model import Posterior, save
+from routing.model_summary import compute_summary
+from routing.simulate import Lift, PolicyResult, SimulationReport
 
 
 def _app_with_fakes(posterior: Posterior, rng: np.random.Generator) -> FastAPI:
@@ -91,6 +95,62 @@ async def test_decide_validation_error(fake_posterior: Posterior) -> None:
     assert response.status_code == 422
 
 
+def _fake_simulation_report() -> SimulationReport:
+    return SimulationReport(
+        n=42,
+        per_policy=(
+            PolicyResult("variance-aware", n=42, on_time_rate=0.61, mean_delay_min=-3.4, p95_delay_min=80.0),
+            PolicyResult("mean-only", n=42, on_time_rate=0.58, mean_delay_min=1.2, p95_delay_min=84.0),
+            PolicyResult("proximity", n=42, on_time_rate=0.49, mean_delay_min=6.8, p95_delay_min=92.0),
+        ),
+        lifts=(
+            Lift("variance-aware", vs="mean-only", point_pp=3.0, ci_95_lo_pp=-0.5, ci_95_hi_pp=6.0),
+            Lift("variance-aware", vs="proximity", point_pp=12.0, ci_95_lo_pp=8.5, ci_95_hi_pp=15.5),
+        ),
+        on_time_by_policy={
+            "variance-aware": np.zeros(42, dtype=np.int32),
+            "mean-only": np.zeros(42, dtype=np.int32),
+            "proximity": np.zeros(42, dtype=np.int32),
+        },
+    )
+
+
+async def test_backtest_summary_endpoint_returns_cached_report(fake_posterior: Posterior) -> None:
+    """GET /backtest/summary returns the SimulationReport that lifespan cached."""
+    rng = np.random.default_rng(0)
+    report = _fake_simulation_report()
+    app = _app_with_fakes(fake_posterior, rng)
+    app.dependency_overrides[get_backtest] = lambda: report
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+        response = await client.get("/backtest/summary")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["n"] == 42
+    policy_ids = {p["policy_id"] for p in body["per_policy"]}
+    assert policy_ids == {"variance-aware", "mean-only", "proximity"}
+    # The variance-aware vs proximity lift should land between its CI bounds.
+    va_vs_prox = next(lift for lift in body["lifts"] if lift["vs"] == "proximity")
+    assert va_vs_prox["ci_95_lo_pp"] <= va_vs_prox["point_pp"] <= va_vs_prox["ci_95_hi_pp"]
+
+
+async def test_model_summary_endpoint_returns_cached_summary(fake_posterior: Posterior) -> None:
+    """GET /model/summary returns the ModelSummaryResponse that lifespan cached."""
+    rng = np.random.default_rng(0)
+    summary = compute_summary(fake_posterior)
+    app = _app_with_fakes(fake_posterior, rng)
+    app.dependency_overrides[get_model_summary] = lambda: summary
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+        response = await client.get("/model/summary")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["n_samples"] == fake_posterior.n_samples()
+    assert body["facility_ids"] == ["BOCA", "LGB", "ELM"]
+    names = {p["name"] for p in body["parameters"]}
+    assert "mu_global" in names
+    assert "alpha[BOCA]" in names
+    assert "beta[TRAY-KNEE]" in names
+
+
 async def test_decide_unknown_facility_falls_back_to_id_as_name(
     fake_posterior: Posterior,
 ) -> None:
@@ -118,14 +178,16 @@ async def test_decide_unknown_facility_falls_back_to_id_as_name(
 
 
 def test_lifespan_loads_posterior_and_seeds_rng(tmp_path: Path, fake_posterior: Posterior) -> None:
-    """Lifespan reads the configured model_path and primes a seeded RNG."""
+    """Lifespan loads the posterior, primes a seeded RNG, and pre-warms the cached surfaces."""
     model_path = tmp_path / "model.npz"
     save(fake_posterior, str(model_path))
-    cfg = Settings(model_path=model_path, seed=7)
+    cfg = Settings(model_path=model_path, seed=7, backtest_n=10, backtest_seed=42)
     app = create_app(cfg)
     with TestClient(app) as client:
         assert app.state.posterior.facility_ids == fake_posterior.facility_ids
         assert isinstance(app.state.rng, np.random.Generator)
+        assert app.state.backtest.n == 10
+        assert app.state.model_summary.n_samples == fake_posterior.n_samples()
         assert client.get("/healthz").status_code == 200
 
 
@@ -136,9 +198,11 @@ def test_create_app_uses_environment_when_no_settings(
     save(fake_posterior, str(model_path))
     monkeypatch.setenv("ROUTING_MODEL_PATH", str(model_path))
     monkeypatch.setenv("ROUTING_SEED", "13")
+    monkeypatch.setenv("ROUTING_BACKTEST_N", "10")
     app = create_app()
     with TestClient(app):
         assert app.state.posterior.facility_ids == fake_posterior.facility_ids
+        assert app.state.backtest.n == 10
 
 
 async def test_dependency_resolvers_read_from_app_state(
@@ -147,8 +211,14 @@ async def test_dependency_resolvers_read_from_app_state(
     from unittest.mock import MagicMock
 
     rng = np.random.default_rng(0)
+    report = MagicMock(spec=SimulationReport)
+    summary = MagicMock()
     request = MagicMock()
     request.app.state.posterior = fake_posterior
     request.app.state.rng = rng
+    request.app.state.backtest = report
+    request.app.state.model_summary = summary
     assert (await get_posterior(request)) is fake_posterior
     assert (await get_rng(request)) is rng
+    assert (await get_backtest(request)) is report
+    assert (await get_model_summary(request)) is summary

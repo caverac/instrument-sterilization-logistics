@@ -94,7 +94,7 @@ yarn workspace @isl/dashboard dev
 # expected: server at http://localhost:3091
 ```
 
-Open [http://localhost:3091](http://localhost:3091). The sidebar has five tabs; **Explorer** and **Operations** are live, the other three are placeholders pending endpoints.
+Open [http://localhost:3091](http://localhost:3091). The sidebar has five tabs; **Explorer**, **Operations**, **Backtest**, and **Model** are live; **Calibration** is the last placeholder pending its endpoint.
 
 ### 6. Backfill the dashboard with synthetic journeys
 

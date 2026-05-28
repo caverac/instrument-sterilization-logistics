@@ -92,3 +92,43 @@ export interface Journey {
 export interface RecentJourneysResponse {
   journeys: Journey[]
 }
+
+/** Per-policy aggregate from a single backtest run. */
+export interface BacktestPolicySummary {
+  policy_id: PolicyId
+  on_time_rate: number
+  mean_delay_min: number
+  p95_delay_min: number
+}
+
+/** On-time-rate lift of one policy over another, with a 95% bootstrap CI in pp. */
+export interface BacktestLift {
+  policy_id: PolicyId
+  vs: PolicyId
+  point_pp: number
+  ci_95_lo_pp: number
+  ci_95_hi_pp: number
+}
+
+export interface BacktestSummaryResponse {
+  n: number
+  per_policy: BacktestPolicySummary[]
+  lifts: BacktestLift[]
+}
+
+/** Posterior summary stats for one scalar model parameter. */
+export interface ParameterSummary {
+  name: string
+  mean: number
+  sd: number
+  p5: number
+  p50: number
+  p95: number
+}
+
+export interface ModelSummaryResponse {
+  n_samples: number
+  facility_ids: string[]
+  tray_type_ids: string[]
+  parameters: ParameterSummary[]
+}

@@ -39,3 +39,13 @@ class Settings(BaseSettings):
         le=500,
         description="Row cap for the /operations endpoints.",
     )
+    backtest_n: int = Field(
+        default=3000,
+        ge=10,
+        le=20000,
+        description="Pickups simulated at startup for the cached /backtest/summary response.",
+    )
+    backtest_seed: int = Field(
+        default=100,
+        description="RNG seed for the startup-cached backtest. Deterministic given posterior + seed + n.",
+    )

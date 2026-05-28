@@ -8,8 +8,10 @@ from typing import Annotated, AsyncIterator
 import numpy as np
 from fastapi import Depends, FastAPI, Request
 
+from routing.backtest_summary import to_response as backtest_to_response
 from routing.config import Settings
 from routing.model import Posterior, load
+from routing.model_summary import compute_summary as compute_model_summary
 from routing.operations import (
     RecentJourneysResponse,
     TrayStatesResponse,
@@ -17,8 +19,16 @@ from routing.operations import (
     fetch_tray_states,
 )
 from routing.policies import mean_only, proximity, variance_aware
-from routing.schemas import DecideRequest, DecideResponse, FacilityCell, PolicyDecision
+from routing.schemas import (
+    BacktestSummaryResponse,
+    DecideRequest,
+    DecideResponse,
+    FacilityCell,
+    ModelSummaryResponse,
+    PolicyDecision,
+)
 from routing.score import expected_completion_min, p_on_time
+from routing.simulate import SimulationReport, run_simulation, synth_events_data_generator
 
 # Static facility metadata for the UI. Mirrors synth-events' design story so
 # the cards on the dashboard always have a one-line profile next to the
@@ -59,8 +69,22 @@ async def get_rng(request: Request) -> np.random.Generator:
     return rng
 
 
+async def get_backtest(request: Request) -> SimulationReport:
+    """Resolve the startup-cached backtest report from app state."""
+    report: SimulationReport = request.app.state.backtest
+    return report
+
+
+async def get_model_summary(request: Request) -> ModelSummaryResponse:
+    """Resolve the startup-cached posterior summary from app state."""
+    summary: ModelSummaryResponse = request.app.state.model_summary
+    return summary
+
+
 PosteriorDep = Annotated[Posterior, Depends(get_posterior)]
 RngDep = Annotated[np.random.Generator, Depends(get_rng)]
+BacktestDep = Annotated[SimulationReport, Depends(get_backtest)]
+ModelSummaryDep = Annotated[ModelSummaryResponse, Depends(get_model_summary)]
 
 
 def _build_facility_cells(
@@ -141,6 +165,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.posterior = load(str(cfg.model_path))
         app.state.rng = np.random.default_rng(cfg.seed)
+        # Pre-warm the backtest. Deterministic given (posterior, backtest_seed,
+        # backtest_n); cache it so /backtest/summary is O(1).
+        app.state.backtest = run_simulation(
+            app.state.posterior,
+            synth_events_data_generator(),
+            cfg.backtest_n,
+            np.random.default_rng(cfg.backtest_seed),
+        )
+        # Pre-compute per-parameter posterior summaries. Cheap; cache for
+        # consistency with the other surfaces.
+        app.state.model_summary = compute_model_summary(app.state.posterior)
         yield
 
     app = FastAPI(title="routing", lifespan=lifespan)
@@ -172,5 +207,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def operations_recent_journeys() -> RecentJourneysResponse:
         """Return the most recently delivered journey rows from the projector store."""
         return fetch_recent_journeys(cfg.postgres_dsn, cfg.operations_limit)
+
+    @app.get("/backtest/summary")
+    def backtest_summary(report: BacktestDep) -> BacktestSummaryResponse:
+        """Return the startup-cached head-to-head policy comparison."""
+        return backtest_to_response(report)
+
+    @app.get("/model/summary")
+    def model_summary(summary: ModelSummaryDep) -> ModelSummaryResponse:
+        """Return the startup-cached per-parameter posterior summaries."""
+        return summary
 
     return app
