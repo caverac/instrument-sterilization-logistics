@@ -65,12 +65,12 @@ The stack today:
 - **Redpanda** -- Kafka API + Schema Registry in a single binary, the event bus
 - **FastAPI** -- for the [ingest service](services/ingest) (validates events, derives a deterministic UUIDv5, publishes to Kafka) and the [routing service](services/routing) (serves the Bayesian model to the dashboard)
 - **PyMC** -- the hierarchical Bayesian routing model (per-facility partial pooling, posterior-predictive scoring)
+- **Postgres** -- the projection store the [`projector`](services/projector) consumer writes to. Not load-bearing; wipe it and replay the log
 - **Vite + React + Tailwind** -- the [dashboard](dashboard), wired to the routing service via Vite's `/api` proxy
 - **Docusaurus** -- this docs site
 
 Planned, not yet built:
 
-- **Postgres** -- the projection store the `projector` consumer will write to. Not load-bearing; wipe it and replay the log
 - **S3** -- the immutable long-term archive, written by the Kafka Connect S3 sink
 
 Flink, Snowflake, and TimescaleDB are graduated _to_ only when a specific workload demands them -- see [Roadmap](roadmap) for the triggers.
@@ -79,7 +79,7 @@ Flink, Snowflake, and TimescaleDB are graduated _to_ only when a specific worklo
 
 The Kafka topic `events` is the only source of truth. Everything else -- where each tray is right now, the full journey of a tray, the SLA report for each client -- is a **projection**: a view derived from the log by replaying events in order.
 
-Concretely, the planned `projector` consumer reads `events` and writes the current tray state and per-tray journey into Postgres. Future readers (the dashboard, the SLA report) will read those tables. If the projection logic has a bug, the fix is: change the consumer, drop the affected Postgres tables, and replay the log from offset 0. The truth doesn't move; only the view of it does.
+Concretely, the [`projector`](services/projector) consumer reads `events` and writes the current tray state and per-tray journey into Postgres. Future readers (the dashboard, the SLA report) read from those tables. If the projection logic has a bug, the fix is: change the consumer, drop the affected Postgres tables, and replay the log from offset 0. The truth doesn't move; only the view of it does.
 
 This is what keeps the system extensible. A new consumer -- a fraud detector, a new SLA contract shape, an ML training pipeline -- is just another reader of the same log: no upstream change required, and the new consumer backfills its own state by replaying history.
 
@@ -89,6 +89,7 @@ This is what keeps the system extensible. A new consumer -- a fraud detector, a 
 - **[Ingest service](services/ingest)** -- the front door for events
 - **[Synthetic events](services/synth-events)** -- generates training data before real-client data exists
 - **[Routing model](services/routing)** -- the Bayesian model, three policies, and the simulation harness
+- **[Projector](services/projector)** -- Kafka consumer that projects events into Postgres `tray` and `journey` tables
 - **[Dashboard](dashboard)** -- interactive UI: what's live, what's stubbed, what each tab is for
 - **[Roadmap](roadmap)** -- what's built, what's next, and what's deliberately not built yet (with the trigger that would change that)
 - **[Glossary](glossary)** -- acronyms (SPD, EHR, HL7, ...) and project-specific terms

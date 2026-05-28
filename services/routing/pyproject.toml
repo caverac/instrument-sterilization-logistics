@@ -8,6 +8,7 @@ dependencies = [
     "click>=8.1",
     "fastapi>=0.115",
     "numpy>=1.26,<2.0",
+    "psycopg[binary]>=3.2",
     "pyarrow>=18.0",
     "pydantic>=2.10",
     "pydantic-settings>=2.6",

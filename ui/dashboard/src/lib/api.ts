@@ -3,7 +3,12 @@
  * proxy, which forwards to the routing service on :8091 in dev.
  */
 
-import type { DecideRequest, DecideResponse } from './types'
+import type {
+  DecideRequest,
+  DecideResponse,
+  RecentJourneysResponse,
+  TrayStatesResponse
+} from './types'
 
 const API_BASE = '/api'
 
@@ -27,4 +32,12 @@ export async function getHealth(): Promise<{ status: string }> {
 
 export async function decide(request: DecideRequest): Promise<DecideResponse> {
   return fetchJson('/decide', { method: 'POST', body: JSON.stringify(request) })
+}
+
+export async function getTrayStates(): Promise<TrayStatesResponse> {
+  return fetchJson('/operations/tray-states')
+}
+
+export async function getRecentJourneys(): Promise<RecentJourneysResponse> {
+  return fetchJson('/operations/recent-journeys')
 }

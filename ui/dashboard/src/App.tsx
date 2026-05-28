@@ -5,6 +5,7 @@ import { Backtest } from '@/routes/Backtest'
 import { Calibration } from '@/routes/Calibration'
 import { Explorer } from '@/routes/Explorer'
 import { Model } from '@/routes/Model'
+import { Operations } from '@/routes/Operations'
 
 export const App = () => {
   return (
@@ -12,6 +13,7 @@ export const App = () => {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/explorer" element={<Explorer />} />
+          <Route path="/operations" element={<Operations />} />
           <Route path="/backtest" element={<Backtest />} />
           <Route path="/calibration" element={<Calibration />} />
           <Route path="/model" element={<Model />} />

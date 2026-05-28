@@ -17,9 +17,9 @@ describe('Layout', () => {
     expect(screen.getByText('ISL Routing')).toBeInTheDocument()
   })
 
-  it('renders all four primary nav items', () => {
+  it('renders all five primary nav items', () => {
     renderLayout()
-    for (const label of ['Explorer', 'Backtest', 'Calibration', 'Model']) {
+    for (const label of ['Explorer', 'Operations', 'Backtest', 'Calibration', 'Model']) {
       expect(screen.getByRole('link', { name: new RegExp(label, 'i') })).toBeInTheDocument()
     }
   })

@@ -1,10 +1,11 @@
-import { Activity, GitCompareArrows, LineChart, Microscope, Sliders } from 'lucide-react'
+import { Activity, Database, GitCompareArrows, LineChart, Microscope, Sliders } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/explorer', icon: Sliders, label: 'Explorer' },
+  { to: '/operations', icon: Database, label: 'Operations' },
   { to: '/backtest', icon: GitCompareArrows, label: 'Backtest' },
   { to: '/calibration', icon: LineChart, label: 'Calibration' },
   { to: '/model', icon: Microscope, label: 'Model' }

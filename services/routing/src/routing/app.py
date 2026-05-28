@@ -10,6 +10,12 @@ from fastapi import Depends, FastAPI, Request
 
 from routing.config import Settings
 from routing.model import Posterior, load
+from routing.operations import (
+    RecentJourneysResponse,
+    TrayStatesResponse,
+    fetch_recent_journeys,
+    fetch_tray_states,
+)
 from routing.policies import mean_only, proximity, variance_aware
 from routing.schemas import DecideRequest, DecideResponse, FacilityCell, PolicyDecision
 from routing.score import expected_completion_min, p_on_time
@@ -156,5 +162,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             facilities=_build_facility_cells(posterior, body.tray_type_id, is_peak, body.deadline_min, rng),
             policies=_build_policy_decisions(posterior, body, is_peak, rng),
         )
+
+    @app.get("/operations/tray-states")
+    def operations_tray_states() -> TrayStatesResponse:
+        """Return the most recently updated tray rows from the projector store."""
+        return fetch_tray_states(cfg.postgres_dsn, cfg.operations_limit)
+
+    @app.get("/operations/recent-journeys")
+    def operations_recent_journeys() -> RecentJourneysResponse:
+        """Return the most recently delivered journey rows from the projector store."""
+        return fetch_recent_journeys(cfg.postgres_dsn, cfg.operations_limit)
 
     return app

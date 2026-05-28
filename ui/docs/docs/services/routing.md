@@ -236,14 +236,43 @@ The tighter the deadline distribution gets, the more the variance-aware advantag
 flowchart LR
     SE[synth-events] -->|journeys.parquet| RF[routing fit]
     RF -->|model.npz| RB[routing backtest]
-    RF -->|model.npz| API[future routing service / dashboard]
-    P[future projector] -.->|real journeys.parquet| RF
+    RF -->|model.npz| API[routing FastAPI]
+    API -->|POST /decide| UIE[dashboard Explorer]
+    PG[(Postgres - projector store)] -->|SELECT| API
+    API -->|GET /operations/*| UIO[dashboard Operations]
+    PJ[future projector -> real journeys.parquet] -.->|real journey rows| RF
 
     classDef devtool fill:#0d6e6e,stroke:#053838,color:#fff
+    classDef store fill:#2cc4c4,stroke:#0d6e6e,color:#053838
     class RF,RB,API devtool
+    class PG store
 ```
 
-Right now the model trains offline on synth-events output and the backtest CLI prints lift tables. The future state: a FastAPI service exposes `/policy/decide` for the dashboard's Explorer tab to call interactively, and a separate `routing-recalibrator` job re-fits nightly on rolling-window data from the projector.
+The FastAPI service exposes three surfaces today: `POST /decide` (the modelling endpoint that backs the dashboard's Explorer tab), and two read-only `/operations/*` endpoints that pass through to the projector's Postgres tables for the Operations tab. The `routing fit` CLI still trains offline on `synth-events` parquet; once enough real journey volume accumulates in Postgres, the fit pipeline switches its input from parquet to a SQL query.
+
+## HTTP API
+
+`POST /decide` -- the model surface; see [Dashboard -- Explorer](../dashboard#explorer-live) for the request/response shape.
+
+`GET /operations/tray-states` -- the most recently updated rows from the projector's `tray` table (default cap: 50). Used by the dashboard's Operations tab. Response:
+
+```json
+{
+  "trays": [
+    {
+      "tray_id": "TRAY-LIVE-1779984855",
+      "current_facility_id": "BOCA",
+      "current_stage": "DELIVERED",
+      "last_event_ts": "2026-05-27T11:30:00Z",
+      "last_updated": "2026-05-28T16:14:16.080476Z"
+    }
+  ]
+}
+```
+
+`GET /operations/recent-journeys` -- the most recently delivered rows from the projector's `journey` table (default cap: 50). Used by the dashboard's Operations tab. Response includes facility / client / tray_type, per-stage dwells, `delivered_ts`, `on_time`, and `delay_min`.
+
+Both `/operations` endpoints return **503 Service Unavailable** if Postgres is unreachable -- they open a fresh psycopg connection per request and propagate any `OperationalError` as a recoverable HTTP error.
 
 ## CLI
 
@@ -260,6 +289,8 @@ uv run routing backtest --model model.npz --n 5000 --seed 100
 
 ## Configuration knobs
 
+### CLI flags
+
 | Knob                  | CLI flag   | Default | Notes                                                            |
 | --------------------- | ---------- | ------- | ---------------------------------------------------------------- |
 | NUTS draws per chain  | `--draws`  | 1000    | Higher gives smoother posteriors; diminishing returns past ~2000 |
@@ -268,6 +299,15 @@ uv run routing backtest --model model.npz --n 5000 --seed 100
 | Fit seed              | `--seed`   | 42      |                                                                  |
 | Backtest pickups      | `--n`      | 5000    | Larger N tightens lift CIs; 3-5k is enough for most decisions    |
 | Backtest seed         | `--seed`   | 100     |                                                                  |
+
+### Environment variables (service)
+
+| Variable                   | Default                                                     | Notes                                                                               |
+| -------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `ROUTING_MODEL_PATH`       | `model.npz`                                                 | Posterior `.npz` archive loaded at startup; must be produced by `routing fit` first |
+| `ROUTING_SEED`             | `42`                                                        | RNG seed for posterior-predictive sampling at decide time                           |
+| `ROUTING_POSTGRES_DSN`     | `postgresql://projector:projector@localhost:5432/projector` | Read-only connection to the projector's projection store; used by `/operations/*`   |
+| `ROUTING_OPERATIONS_LIMIT` | `50`                                                        | Max rows returned by either `/operations/*` endpoint (1--500)                       |
 
 ## Testing
 
@@ -284,10 +324,13 @@ cd services/routing && uv run python -m pytest tests/ -v
 
 ## Out of scope (now)
 
-| Not building                       | Triggered by                                                                                                                             |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| FastAPI service exposing the model | Dashboard wiring (see [Roadmap](../roadmap))                                                                                             |
-| Calibration / drift monitoring     | First real-world data lands; we can't observe drift against synth-events because its distribution is fixed                               |
-| Per-stage modeling                 | A real signal that stage-level structure matters for routing -- e.g. a bottleneck-attribution story for the dispatch console             |
-| Causal evaluation                  | A real client running both policies in alternation; until then, simulation against the data generator is the honest evaluation framework |
-| Stan / numpyro backend             | A speed or scale need PyMC can't meet. Not foreseeable for our problem size.                                                             |
+| Not building                          | Triggered by                                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /backtest/summary`               | Dashboard's Backtest tab wiring. CLI works today (`routing backtest`); the endpoint is a small wrapper                                   |
+| `GET /model/summary`                  | Dashboard's Model tab wiring. Either reads the `.npz` directly or summarises the posterior at startup                                    |
+| `GET /calibration/reliability`        | Dashboard's Calibration tab. Joins predicted P(on-time) against the projector's `journey.on_time` and bins the result                    |
+| Connection pooling on `/operations/*` | Sustained dashboard load. Today is a fresh psycopg connection per request; fine for polling traffic, replace with `ConnectionPool` later |
+| Calibration / drift monitoring        | First real-world data lands; we can't observe drift against synth-events because its distribution is fixed                               |
+| Per-stage modeling                    | A real signal that stage-level structure matters for routing -- e.g. a bottleneck-attribution story for the dispatch console             |
+| Causal evaluation                     | A real client running both policies in alternation; until then, simulation against the data generator is the honest evaluation framework |
+| Stan / numpyro backend                | A speed or scale need PyMC can't meet. Not foreseeable for our problem size.                                                             |

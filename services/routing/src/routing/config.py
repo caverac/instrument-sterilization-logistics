@@ -29,3 +29,13 @@ class Settings(BaseSettings):
         default=42,
         description="RNG seed for the posterior-predictive sampling at decide time.",
     )
+    postgres_dsn: str = Field(
+        default="postgresql://projector:projector@localhost:5432/projector",
+        description="Postgres DSN for the projector's projection store; read-only.",
+    )
+    operations_limit: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Row cap for the /operations endpoints.",
+    )
