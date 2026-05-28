@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.3.0...v1.4.0) (2026-05-28)
+
+
+### Features
+
+* **services:** added routing service ([f615b84](https://github.com/caverac/instrument-sterilization-logistics/commit/f615b841b5d4a5de3201a04e0f366da081890aad))
+
 # [1.3.0](https://github.com/caverac/instrument-sterilization-logistics/compare/v1.2.0...v1.3.0) (2026-05-28)
 
 
